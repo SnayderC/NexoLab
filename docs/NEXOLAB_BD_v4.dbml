@@ -1,0 +1,290 @@
+// =====================================================================
+// NEXOLAB - Modelo Entidad-Relación v4
+// Cambios v4 (retroalimentación de la docente): prefijos por tipo de tabla,
+// campos de control de registro en todas las tablas y nomenclatura explícita.
+// Importable en dbdiagram.io
+// =====================================================================
+
+Project NexoLab {
+  database_type: 'PostgreSQL'
+  Note: '''
+  # NexoLab - Modelo Entidad-Relación
+  Sistema de gestión de incidencias técnicas con agrupamiento de equipos por nivel de riesgo (K-Means) para los laboratorios del Bloque H.
+
+  ## Tipos de tabla (prefijo)
+  - **cat_ Catálogo:** listas de opciones que casi no cambian (estados, roles, tipos).
+  - **mst_ Maestra:** entidades principales con vida propia (usuarios, laboratorios, equipos).
+  - **trx_ Transaccional:** eventos que ocurren día a día (incidencias).
+  - **hst_ Histórica:** resultados del modelo K-Means, que se acumulan y no se modifican.
+
+  ## Campos de control de registro (en todas las tablas)
+  - **is_active:** estado del registro. false = registro anulado (eliminación lógica, nunca se borra la fila).
+  - **created_at:** fecha y hora de creación del registro.
+  - **updated_at:** fecha y hora de la última modificación.
+
+  ## Nomenclatura
+  - Tablas y atributos en inglés, minúsculas y snake_case. Tablas en plural, con prefijo de tipo.
+  - Clave primaria: id. Clave foránea: <entidad>_id (ej.: device_id) o <rol>_id (ej.: reported_by_id).
+  - Booleanos: prefijo is_ o has_ (is_final, has_converged).
+  - Fecha y hora: sufijo _at (opened_at). Cantidades: sufijo _count (device_count).
+  - Unidades al final del nombre: _minutes, _days, _ms. Promedios: prefijo avg_.
+  - Códigos internos en inglés y mayúsculas (OPEN, RETIRED). Textos visibles en español, en la columna name.
+
+  ## Regla de negocio
+  Un equipo con menos de 2 incidencias se clasifica como riesgo bajo (INSUFFICIENT_HISTORY). Solo los equipos con 2 o más incidencias entran al K-Means.
+  '''
+}
+
+// =====================================================================
+// CATÁLOGOS (cat_)
+// =====================================================================
+
+Table cat_roles [headercolor: #64748B] {
+  id integer [pk, increment]
+  code varchar(20) [not null, unique, note: 'TECHNICIAN | ADMIN']
+  name varchar(50) [not null, note: 'Técnico de soporte | Administrador']
+  is_active boolean [not null, default: true, note: 'Estado del registro']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  Note: 'Catálogo de roles. Define qué funcionalidades puede usar cada usuario.'
+}
+
+Table cat_device_types [headercolor: #64748B] {
+  id integer [pk, increment]
+  code varchar(10) [not null, unique, note: 'PC | MON | AIO | UPS | TV ...']
+  name varchar(80) [not null]
+  is_selected boolean [not null, default: false, note: 'Seleccionado por la institución en la pantalla Catálogo de equipos']
+  is_active boolean [not null, default: true, note: 'Estado del registro']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  Note: 'Catálogo ampliable de tipos de equipo. Solo los seleccionados aparecen en los formularios y en el cálculo de riesgo.'
+}
+
+Table cat_device_statuses [headercolor: #64748B] {
+  id integer [pk, increment]
+  code varchar(20) [not null, unique, note: 'ACTIVE | RETIRED']
+  name varchar(50) [not null]
+  is_included_in_kmeans boolean [not null, note: 'Los equipos retirados no entran al cálculo de riesgo']
+  is_active boolean [not null, default: true, note: 'Estado del registro']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  Note: 'Estado de negocio de un equipo (operativo o retirado).'
+}
+
+Table cat_components [headercolor: #64748B] {
+  id integer [pk, increment]
+  code varchar(20) [not null, unique]
+  name varchar(80) [not null, note: 'PC, Monitor, Teclado, Mouse, UPS']
+  is_active boolean [not null, default: true, note: 'Estado del registro']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  Note: 'Componente afectado en una incidencia. Incluye periféricos que no se registran como equipos.'
+}
+
+Table cat_incident_statuses [headercolor: #64748B] {
+  id integer [pk, increment]
+  code varchar(20) [not null, unique, note: 'OPEN | CLOSED']
+  name varchar(50) [not null]
+  is_final boolean [not null, note: 'Una incidencia en estado final ya no se modifica']
+  is_active boolean [not null, default: true, note: 'Estado del registro']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  Note: 'Estado de negocio de una incidencia.'
+}
+
+Table cat_resolution_actions [headercolor: #64748B] {
+  id integer [pk, increment]
+  code varchar(30) [not null, unique, note: 'RESOLVED | REPLACEMENT_REQUIRED | REFERRED']
+  name varchar(100) [not null, note: 'Resuelto | Requiere reemplazo | Derivado']
+  is_retirement_action boolean [not null, default: false, note: 'Si es verdadero, el equipo pasa a retirado automáticamente']
+  is_active boolean [not null, default: true, note: 'Estado del registro']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  Note: 'Acción tomada al cerrar una incidencia.'
+}
+
+Table cat_risk_levels [headercolor: #64748B] {
+  id integer [pk, increment]
+  code varchar(10) [not null, unique, note: 'HIGH | MEDIUM | LOW']
+  name varchar(50) [not null]
+  recommended_action varchar(150)
+  color_hex varchar(7) [note: '#EF4444 | #F59E0B | #10B981']
+  is_active boolean [not null, default: true, note: 'Estado del registro']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  Note: 'Niveles de riesgo que se muestran en el dashboard.'
+}
+
+// =====================================================================
+// MAESTRAS (mst_)
+// =====================================================================
+
+Table mst_users [headercolor: #2563EB] {
+  id integer [pk, increment]
+  role_id integer [not null, ref: > cat_roles.id]
+  first_name varchar(100) [not null]
+  last_name varchar(100) [not null]
+  email varchar(150) [not null, unique, note: 'Correo para iniciar sesión']
+  password_hash varchar(128) [not null, note: 'Hash de la contraseña, nunca la contraseña real']
+  last_login_at timestamptz
+  is_active boolean [not null, default: true, note: 'Estado del registro. false = usuario desactivado, no puede iniciar sesión']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  Note: 'Personas que usan el sistema. Un técnico puede atender cualquier laboratorio.'
+}
+
+Table mst_laboratories [headercolor: #2563EB] {
+  id integer [pk, increment]
+  code varchar(10) [not null, unique, note: 'Ej.: H101']
+  name varchar(100) [not null]
+  location varchar(150) [note: 'Texto libre opcional. Ej.: Bloque H, planta alta']
+  station_count smallint [not null, note: 'Cantidad de puestos de trabajo (no de equipos)']
+  responsible_technician_id integer [ref: > mst_users.id, note: 'Técnico que responde por el laboratorio (opcional)']
+  is_active boolean [not null, default: true, note: 'Estado del registro']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  Note: 'Laboratorios de cómputo. Su composición se calcula contando sus equipos por tipo.'
+}
+
+Table mst_devices [headercolor: #2563EB] {
+  id integer [pk, increment]
+  code varchar(30) [not null, unique, note: 'Código de la etiqueta física. Ej.: H103-PC-03']
+  laboratory_id integer [not null, ref: > mst_laboratories.id]
+  device_type_id integer [not null, ref: > cat_device_types.id]
+  device_status_id integer [not null, ref: > cat_device_statuses.id, note: 'Estado de negocio: activo o retirado']
+  physical_location varchar(100) [note: 'Ubicación dentro del laboratorio. Ej.: Fila 2, puesto 5']
+  specifications text
+  retired_at timestamptz [note: 'Se llena cuando el equipo pasa a retirado']
+  is_active boolean [not null, default: true, note: 'Estado del registro. false = registro anulado (ej.: equipo creado por error)']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  Note: 'Equipos físicos. El nivel de riesgo se guarda en hst_device_risk_results, con historial.'
+}
+
+// =====================================================================
+// TRANSACCIONALES (trx_)
+// =====================================================================
+
+Table trx_incidents [headercolor: #0F766E] {
+  id bigint [pk, increment]
+  incident_number varchar(20) [not null, unique, note: 'Número legible. Ej.: INC-2026-0001']
+  device_id integer [not null, ref: > mst_devices.id]
+  component_id integer [not null, ref: > cat_components.id]
+  incident_status_id integer [not null, ref: > cat_incident_statuses.id, note: 'Estado de negocio: abierta o cerrada']
+  resolution_action_id integer [ref: > cat_resolution_actions.id, note: 'Vacío mientras la incidencia está abierta']
+  reported_by_id integer [not null, ref: > mst_users.id, note: 'Quién la registró']
+  closed_by_id integer [ref: > mst_users.id, note: 'Quién la cerró']
+  priority varchar(10) [not null, note: 'HIGH | MEDIUM | LOW']
+  description text [not null, note: 'Entre 10 y 500 caracteres']
+  diagnosis text [note: 'Obligatorio al cerrar']
+  notes text
+  opened_at timestamptz [not null, note: 'Cuándo ocurrió la falla']
+  closed_at timestamptz
+  resolution_time_minutes integer [note: 'Calculado al cerrar: closed_at - opened_at']
+  is_active boolean [not null, default: true, note: 'Estado del registro. false = incidencia anulada (registrada por error)']
+  created_at timestamptz [not null, default: `now()`, note: 'Cuándo se registró en el sistema']
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (device_id, opened_at) [name: 'idx_trx_inc_device_opened']
+  }
+  Note: 'Registro principal de incidencias técnicas. Sus datos alimentan el modelo K-Means.'
+}
+
+// =====================================================================
+// HISTÓRICAS (hst_)
+// =====================================================================
+
+Table hst_kmeans_runs [headercolor: #B45309] {
+  id bigint [pk, increment]
+  trigger_type varchar(30) [not null, note: 'INITIAL_LOAD | INCIDENT_CLOSED | CATALOG_CHANGE | MANUAL']
+  triggered_by_id integer [ref: > mst_users.id, note: 'Vacío si lo lanzó el sistema']
+  incident_id bigint [ref: > trx_incidents.id, note: 'Incidencia cuyo cierre disparó el cálculo']
+  run_status varchar(15) [not null, note: 'RUNNING | COMPLETED | FAILED']
+  cluster_count smallint [not null, default: 3, note: 'Valor k del algoritmo']
+  max_iterations integer [not null, default: 100]
+  iteration_count integer
+  has_converged boolean
+  random_seed integer [not null, note: 'Permite repetir exactamente el mismo resultado']
+  device_count integer [note: 'Equipos analizados']
+  inertia numeric(14,4)
+  silhouette_score numeric(6,5) [note: 'Calidad de la separación de grupos, de -1 a 1']
+  davies_bouldin_index numeric(10,5)
+  parameters jsonb [note: 'Configuración usada: variables, tipos seleccionados, origen de los datos']
+  error_message text
+  started_at timestamptz [not null]
+  finished_at timestamptz
+  duration_ms integer
+  is_active boolean [not null, default: true, note: 'Estado del registro. false = ejecución invalidada']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  Note: 'Bitácora de cada ejecución del modelo. Garantiza trazabilidad y reproducibilidad.'
+}
+
+Table hst_kmeans_centroids [headercolor: #B45309] {
+  id bigint [pk, increment]
+  kmeans_run_id bigint [not null, ref: > hst_kmeans_runs.id]
+  cluster_index smallint [not null, note: 'Número de grupo devuelto por el algoritmo']
+  risk_level_id integer [not null, ref: > cat_risk_levels.id, note: 'Nivel asignado al grupo según su perfil']
+  avg_incident_count numeric(10,4) [not null]
+  avg_days_since_last_failure numeric(10,4) [not null]
+  avg_failure_interval_days numeric(10,4) [not null]
+  device_count integer [not null]
+  is_active boolean [not null, default: true, note: 'Estado del registro']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (kmeans_run_id, cluster_index) [unique, name: 'uq_hst_kmeans_centroids_run_cluster']
+  }
+  Note: 'Perfil promedio de cada grupo en una ejecución.'
+}
+
+Table hst_device_risk_results [headercolor: #B45309] {
+  id bigint [pk, increment]
+  kmeans_run_id bigint [not null, ref: > hst_kmeans_runs.id]
+  device_id integer [not null, ref: > mst_devices.id]
+  classification_method varchar(25) [not null, note: 'KMEANS | INSUFFICIENT_HISTORY']
+  kmeans_centroid_id bigint [ref: > hst_kmeans_centroids.id, note: 'Vacío si el equipo no tiene historial suficiente']
+  risk_level_id integer [not null, ref: > cat_risk_levels.id]
+  incident_count integer [not null]
+  days_since_last_failure integer [note: 'Vacío si el equipo nunca falló']
+  avg_failure_interval_days numeric(10,2) [note: 'Vacío si tiene menos de 2 fallas']
+  distance_to_centroid numeric(12,6) [note: 'Qué tan típico es el equipo dentro de su grupo']
+  is_current boolean [not null, default: false, note: 'Resultado vigente del equipo: el que muestra el dashboard']
+  calculated_at timestamptz [not null]
+  is_active boolean [not null, default: true, note: 'Estado del registro']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  Note: 'Nivel de riesgo de cada equipo en cada ejecución. Conserva el historial de cambios de riesgo.'
+}
+
+// =====================================================================
+// MÓDULOS
+// =====================================================================
+
+TableGroup usuarios_y_seguridad {
+  cat_roles
+  mst_users
+}
+
+TableGroup infraestructura {
+  mst_laboratories
+  cat_device_types
+  cat_device_statuses
+  mst_devices
+}
+
+TableGroup incidencias {
+  cat_components
+  cat_incident_statuses
+  cat_resolution_actions
+  trx_incidents
+}
+
+TableGroup riesgo_kmeans {
+  cat_risk_levels
+  hst_kmeans_runs
+  hst_kmeans_centroids
+  hst_device_risk_results
+}
