@@ -115,6 +115,7 @@ Versiones verificadas el 24/10/2026. Al instalar, se fijan con los archivos de b
 | React Router | 8 | Navegación entre pantallas |
 | TanStack Query | 5 | Pedir datos a la API, con caché y estados de carga |
 | React Hook Form + Zod | 7 / 4 | Formularios y validaciones |
+| @hookform/resolvers | 5 | Conecta Zod con React Hook Form (ver D-15) |
 | lucide-react | actual | Íconos (el Figma usa estilo Lucide) |
 | Recharts | 3 | Gráfico de evolución del riesgo |
 
@@ -360,7 +361,11 @@ Tokens tomados del prototipo de Figma. En el código se definen una sola vez en 
 | Degradado principal | `#3B82F6 → #7C3AED` | Botón principal y panel del login |
 | `text` | `#1F2937` | Texto principal |
 | `text-muted` | `#6B7280` | Texto secundario |
-| `border` | `#D1D5DB` | Bordes |
+| `text-secondary` | `#4B5563` | Opciones inactivas del menú lateral |
+| `border` | `#D1D5DB` | Bordes de campos y botones secundarios |
+| `border-subtle` | `#E5E7EB` | Bordes de barras, tarjetas y filas de tabla |
+| `nav-active` | `#4F46E5` | Texto e ícono de la opción activa del menú |
+| `nav-active-bg` | `#EEF2FF` | Fondo de la opción activa del menú |
 | `background` | `#F3F4F6` | Fondo de página |
 | `surface` | `#FFFFFF` | Tarjetas y modales |
 | `success` | `#10B981` | Éxito |
@@ -374,6 +379,28 @@ Tokens tomados del prototipo de Figma. En el código se definen una sola vez en 
 | Riesgo alto | `#EF4444` |
 | Riesgo medio | `#F59E0B` |
 | Riesgo bajo | `#10B981` |
+
+### Colores de badges, avisos y capas (tomados del Figma)
+
+Fondos claros y textos oscuros de los badges, mensajes y modales. Todos son colores de la paleta estándar de Tailwind.
+
+| Token | Valor | Uso |
+|---|---|---|
+| `risk-high-bg` / `risk-high-text` | `#FEF2F2` / `#B91C1C` | Badge y columna de riesgo alto |
+| `risk-medium-bg` / `risk-medium-text` | `#FFFBEB` / `#B45309` | Badge y columna de riesgo medio |
+| `risk-low-bg` / `risk-low-text` | `#ECFDF5` / `#047857` | Badge y columna de riesgo bajo |
+| `danger-bg` / `danger-text` | `#FEE2E2` / `#B91C1C` | Prioridad alta, errores |
+| `danger-strong` | `#DC2626` | Botón de acción peligrosa ("Retirar equipo") |
+| `warning-bg` / `warning-text` | `#FEF3C7` / `#92400E` | Prioridad media |
+| `warning-border` | `#FDE68A` | Borde del aviso de retiro del equipo (cerrar incidencia) |
+| `success-bg` / `success-text` | `#ECFDF5` / `#047857` | Estados Activo y Cerrada |
+| `info-bg` / `info-border` / `info-text` | `#EFF6FF` / `#BFDBFE` / `#1E40AF` | Estado Abierta, aviso de análisis, opción y página seleccionadas |
+| `neutral-bg` / `neutral-text` | `#F3F4F6` / `#4B5563` | Prioridad baja, Retirado |
+| `text-disabled` | `#9CA3AF` | Texto de campos deshabilitados |
+| `skeleton` | `#E5E7EB` | Esqueletos de carga |
+| `overlay` | `#111827` al 40 % | Fondo oscurecido de modales |
+
+Sombras: `shadow-menu` (listas desplegables), `shadow-toast` (mensajes emergentes) y `shadow-modal` (modales). Tamaño extra: `text-2xs` (11 px) para rótulos de sección y cabeceras de tabla.
 
 ### Tipografía y formas
 
@@ -478,16 +505,16 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 - [ ] Crear `.github/copilot-instructions.md`.
 
 ### Fase 1 — Base del frontend
-- [ ] Crear el proyecto con Vite (React + TypeScript) en `frontend/`.
-- [ ] Configurar Tailwind 4 y los tokens de la sección 11.
+- [x] Crear el proyecto con Vite (React + TypeScript) en `frontend/`.
+- [x] Configurar Tailwind 4 y los tokens de la sección 11.
 - [ ] Conectar Figma con VS Code (guía aparte: `GUIA_FIGMA_A_CODIGO.md`).
-- [ ] Componentes base de `components/ui/`.
-- [ ] `AppLayout` con barra lateral y superior, y router con todas las rutas.
+- [x] Componentes base de `components/ui/`.
+- [x] `AppLayout` con barra lateral y superior, y router con todas las rutas.
 - **Terminado cuando:** se puede navegar entre todas las rutas (aunque estén vacías) con el layout igual al Figma.
 
 ### Fase 2 — Pantallas con datos de demostración
-- [ ] Tipos de TypeScript en `types/` que reflejan la BD.
-- [ ] Datos de demostración en `mocks/`.
+- [x] Tipos de TypeScript en `types/` que reflejan la BD.
+- [x] Datos de demostración en `mocks/`: catálogos, usuarios, laboratorios, 145 equipos, resultados de riesgo y las 12 incidencias del documento (ver D-17).
 - [ ] Pantallas en este orden: Login → Dashboard → Incidencias (lista, registrar, cerrar) → Historial → Administración → Perfil.
 - [ ] Cada pantalla con sus estados: carga, vacío, error y validaciones.
 - **Terminado cuando:** la aplicación se ve y se comporta como el prototipo, leyendo de `mocks/` a través de `api.ts`.
@@ -557,6 +584,13 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 | D-09 | Sin registro público ni recuperación por correo | Sistema interno; el estudio de caso excluye notificaciones por correo |
 | D-10 | Login con mensaje de error genérico | Evita revelar qué correos están registrados |
 | D-11 | Frontend primero con datos de demostración, después el backend | Acuerdo del equipo para avanzar por partes |
+| D-12 | Tokens `text-secondary`, `border-subtle`, `nav-active` y `nav-active-bg` agregados a la sección 11 | El layout del Figma usa esos colores y no existían como tokens |
+| D-13 | Tokens de badges, avisos, sombras y `text-2xs` agregados a la sección 11 | Los componentes del Figma los usan; así ningún componente lleva colores fijos |
+| D-14 | `Select` con lista desplegable propia en lugar del `<select>` del navegador | El `<select>` nativo no permite el estilo del Figma (opción marcada con ✓ y fondo índigo) |
+| D-15 | Se agrega `@hookform/resolvers` 5 | Es el adaptador oficial para validar formularios de React Hook Form con Zod. La versión 6 tiene un conflicto entre sus dependencias opcionales |
+| D-16 | Login simulado hasta la fase 7: contraseña de demostración en `VITE_DEMO_PASSWORD` (`frontend/.env.local`) y sesión en `localStorage` | Permite probar todos los estados del login sin backend y sin credenciales en el código. Se reemplaza por la sesión de Django (sección 18) |
+| D-17 | Los datos de demostración copian el Figma tal cual: solo las 12 incidencias del documento, y los indicadores y promedios del prototipo (48 min, 9,2 incidencias) se guardan como valores fijos | Son datos temporales que desaparecen al conectar el backend (fase 7); el backend calculará los valores reales |
+| D-18 | La hora de referencia de los datos de demostración es el 17/10/2026 11:30 (`mocks/demoClock.ts`); registrar y cerrar incidencias modifican los datos en memoria | Es la hora que usa la página 03 del Figma. Los cambios permiten probar el flujo completo y se pierden al recargar, igual que todo dato de demostración |
 
 ---
 
