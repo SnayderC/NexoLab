@@ -41,12 +41,18 @@ function Button({
   children,
   ...props
 }: ButtonProps) {
+  // Figma 3.8 y 4.2: el botón principal deshabilitado es gris, no el degradado atenuado.
+  const appearance =
+    disabled && !isLoading && variant === 'primary'
+      ? 'border-transparent bg-border-subtle text-text-disabled'
+      : `${variantClasses[variant]} ${isLoading ? '' : 'disabled:opacity-50'}`
+
   return (
     <button
       type={type}
       disabled={disabled || isLoading}
       aria-busy={isLoading || undefined}
-      className={`inline-flex shrink-0 items-center justify-center rounded-lg border font-medium whitespace-nowrap transition disabled:pointer-events-none ${isLoading ? '' : 'disabled:opacity-50'} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
+      className={`inline-flex shrink-0 items-center justify-center rounded-lg border font-medium whitespace-nowrap transition disabled:pointer-events-none ${appearance} ${sizeClasses[size]} ${className}`}
       {...props}
     >
       {isLoading ? (

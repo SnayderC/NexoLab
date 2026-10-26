@@ -5,7 +5,7 @@ import { findDeviceByCode } from './devices'
 import { record } from './record'
 
 // Incidencias de demostración (parte 3 de docs/PROMPT_FIGMA_MAKE_NEXOLAB.md y Figma 3.1):
-// 7 abiertas y 10 cerradas. Registrar y cerrar las modifican en memoria; al recargar
+// 7 abiertas y 20 cerradas. Registrar y cerrar las modifican en memoria; al recargar
 // la página vuelven a este estado inicial.
 
 // Tiempo promedio de atención de los últimos 30 días, tal como aparece en el Figma.
@@ -58,6 +58,30 @@ const seeds: IncidentSeed[] = [
   {
     id: 38, device: 'H105-AIO-04', component: 'PC', priority: 'HIGH', opened_at: '2026-10-10T13:00:00-05:00', reported_by_id: CARLOS_ID, description: 'La pantalla se queda en negro al iniciar.',
     closing: { closed_at: '2026-10-10T13:40:00-05:00', minutes: 40, action: 'REFERRED', diagnosis: 'Falla de placa; enviado a taller externo.' },
+  },
+  // Historial de H103-PC-03 y H103-PC-09 que aparece en el Figma 4.0 y 4.2.
+  // 0002 es la incidencia de la página 2 del historial (el Figma no muestra sus datos).
+  ...([
+    [29, 'H103-PC-03', 'PC', 'HIGH', '2026-10-03T09:40', 35, 'El equipo no enciende.', 'No enciende; se reemplazó el cable de poder.'],
+    [25, 'H103-PC-03', 'PC', 'MEDIUM', '2026-09-28T14:15', 65, 'El sistema operativo no carga.', 'El sistema operativo no carga; se reparó el arranque.'],
+    [21, 'H103-PC-03', 'PC', 'HIGH', '2026-09-23T08:30', 100, 'El equipo se apaga por calor.', 'Sobrecalentamiento; limpieza interna y cambio de pasta térmica.'],
+    [17, 'H103-PC-03', 'MOUSE', 'LOW', '2026-09-18T11:00', 10, 'El clic izquierdo no responde.', 'Falla el clic izquierdo; se reemplazó el mouse.'],
+    [10, 'H103-PC-03', 'KEYBOARD', 'LOW', '2026-09-08T15:30', 20, 'Se derramó líquido sobre el teclado.', 'Teclado con líquido derramado; se reemplazó.'],
+    [6, 'H103-PC-03', 'PC', 'HIGH', '2026-09-02T09:00', 45, 'El equipo no arranca el sistema.', 'No detecta el disco duro; se reconectó el cable SATA.'],
+    [2, 'H103-PC-03', 'PC', 'MEDIUM', '2026-08-27T10:00', 30, 'El ventilador hace mucho ruido.', 'Ventilador ruidoso; limpieza del ventilador.'],
+    [31, 'H103-PC-09', 'PC', 'HIGH', '2026-10-04T11:20', 90, 'El equipo se apaga de repente.', 'Apagados repentinos; se reemplazó la fuente de poder.'],
+    [22, 'H103-PC-09', 'PC', 'MEDIUM', '2026-09-24T09:10', 40, 'El equipo no arranca.', 'No arranca; se reconectó la memoria RAM.'],
+  ] as const).map(([id, device, component, priority, openedAt, minutes, description, diagnosis]): IncidentSeed => {
+    const opened_at = `${openedAt}:00-05:00`
+    const closedAt = new Date(new Date(opened_at).getTime() + minutes * 60_000).toISOString()
+    return {
+      id, device, component, priority, opened_at, reported_by_id: CARLOS_ID, description,
+      closing: { closed_at: closedAt, minutes, action: 'RESOLVED', diagnosis },
+    }
+  }),
+  {
+    id: 14, device: 'H103-PC-03', component: 'PC', priority: 'MEDIUM', opened_at: '2026-09-13T10:20:00-05:00', reported_by_id: ANDREA_ID, closed_by_id: ANDREA_ID, description: 'El equipo se reinicia solo.',
+    closing: { closed_at: '2026-09-13T11:10:00-05:00', minutes: 50, action: 'RESOLVED', diagnosis: 'Reinicios inesperados; se actualizaron los controladores.' },
   },
   // Cerradas que aparecen en el Figma 3.1 (no están en el documento de datos).
   {

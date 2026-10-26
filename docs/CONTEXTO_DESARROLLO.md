@@ -591,6 +591,7 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 | D-16 | Login simulado hasta la fase 7: contraseña de demostración en `VITE_DEMO_PASSWORD` (`frontend/.env.local`) y sesión en `localStorage` | Permite probar todos los estados del login sin backend y sin credenciales en el código. Se reemplaza por la sesión de Django (sección 18) |
 | D-17 | Los datos de demostración copian el Figma tal cual: solo las 12 incidencias del documento, y los indicadores y promedios del prototipo (48 min, 9,2 incidencias) se guardan como valores fijos | Son datos temporales que desaparecen al conectar el backend (fase 7); el backend calculará los valores reales |
 | D-18 | La hora de referencia de los datos de demostración es el 17/10/2026 11:30 (`mocks/demoClock.ts`); registrar y cerrar incidencias modifican los datos en memoria | Es la hora que usa la página 03 del Figma. Los cambios permiten probar el flujo completo y se pierden al recargar, igual que todo dato de demostración |
+| D-19 | El gráfico "Evolución del riesgo" se dibuja con SVG propio en lugar de Recharts | Son escalones de 3 niveles con un color por tramo (Figma 4.0): con SVG queda idéntico y se evita una dependencia. Recharts queda en la sección 4 por si se necesitan gráficos más complejos |
 
 ---
 

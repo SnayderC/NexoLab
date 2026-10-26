@@ -30,14 +30,16 @@ export function formatElapsedLong(from: string, now: string): string {
   return formatDaysAgo(Math.floor(elapsed / DAY_MS))
 }
 
-// Duración de la atención: "25 min", "2 h 10 min", "1 día 0 h 25 min".
+// Duración de la atención: "25 min", "1 h 05 min", "2 h 10 min", "1 día 0 h 25 min".
+// Con horas, los minutos van con dos dígitos, como en el Figma 4.0.
 export function formatDuration(totalMinutes: number): string {
   const days = Math.floor(totalMinutes / MINUTES_PER_DAY)
   const hours = Math.floor((totalMinutes % MINUTES_PER_DAY) / 60)
   const minutes = totalMinutes % 60
+  const paddedMinutes = String(minutes).padStart(2, '0')
 
-  if (days > 0) return `${days} ${days === 1 ? 'día' : 'días'} ${hours} h ${minutes} min`
-  if (hours > 0) return minutes > 0 ? `${hours} h ${minutes} min` : `${hours} h`
+  if (days > 0) return `${days} ${days === 1 ? 'día' : 'días'} ${hours} h ${paddedMinutes} min`
+  if (hours > 0) return minutes > 0 ? `${hours} h ${paddedMinutes} min` : `${hours} h`
   return `${minutes} min`
 }
 

@@ -31,12 +31,17 @@ const specificationsByType: Record<string, string> = {
   MON: 'Monitor 24" Full HD',
   AIO: 'Intel Core i5, 8 GB RAM, pantalla 23,8"',
   UPS: '1000 VA',
-  TV: 'Televisor 55"',
+  TV: 'Smart TV de 55 pulgadas',
+}
+
+// Especificaciones que el Figma muestra distintas a las de su tipo (4.2).
+const specificationsByDevice: Record<string, string> = {
+  'H103-PC-09': 'Intel Core i3, 4 GB RAM',
 }
 
 // Cuatro puestos por fila: puesto 1–4 en la fila 1, 5–8 en la 2, 9–12 en la 3.
 function physicalLocation(typeCode: string, number: number): string {
-  if (typeCode === 'TV') return 'Frente del aula'
+  if (typeCode === 'TV') return 'Pared frontal del aula'
   return `Fila ${Math.ceil(number / 4)}, puesto ${number}`
 }
 
@@ -61,7 +66,7 @@ function buildDevices(): Device[] {
           device_type_id: deviceType.id,
           device_status_id: retiredAt ? RETIRED_STATUS_ID : ACTIVE_STATUS_ID,
           physical_location: physicalLocation(typeCode, number),
-          specifications: specificationsByType[typeCode],
+          specifications: specificationsByDevice[code] ?? specificationsByType[typeCode],
           retired_at: retiredAt,
         })
       }

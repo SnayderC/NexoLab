@@ -241,6 +241,17 @@ export async function closeIncident(
   return { retired_device_code: device.code }
 }
 
+// Laboratorio y equipo para abrir el formulario de registro con un equipo ya elegido
+// (botón "Registrar incidencia para este equipo"). Vacío si el equipo no admite incidencias.
+export function findRegistrationDevice(code: string): { laboratory_id: number; device_id: number } | null {
+  const device = devices.find((d) => d.code === code)
+  if (!device) return null
+  const isEligible = getRegistrationOptions()
+    .devicesByLaboratory(device.laboratory_id)
+    .some((option) => option.id === device.id)
+  return isEligible ? { laboratory_id: device.laboratory_id, device_id: device.id } : null
+}
+
 // Opciones del formulario de registro. RN-13: solo equipos activos, de laboratorios activos
 // y de tipos seleccionados en el catálogo.
 export function getRegistrationOptions() {

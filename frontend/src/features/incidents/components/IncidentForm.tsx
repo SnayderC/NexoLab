@@ -47,6 +47,8 @@ const incidentSchema = z.object({
 type IncidentFormValues = z.input<typeof incidentSchema>
 
 type IncidentFormProps = {
+  // Equipo ya elegido al venir desde el historial del equipo.
+  initialDevice: { laboratory_id: number; device_id: number } | null
   reportedByName: string
   isSubmitting: boolean
   onDeviceChange: (deviceId: number | null) => void
@@ -55,7 +57,14 @@ type IncidentFormProps = {
 }
 
 // Formulario del Figma "3.4 Registrar / Vacío" a "3.6 Registrar / Errores de validación".
-function IncidentForm({ reportedByName, isSubmitting, onDeviceChange, onSubmit, onCancel }: IncidentFormProps) {
+function IncidentForm({
+  initialDevice,
+  reportedByName,
+  isSubmitting,
+  onDeviceChange,
+  onSubmit,
+  onCancel,
+}: IncidentFormProps) {
   const {
     register,
     control,
@@ -65,8 +74,8 @@ function IncidentForm({ reportedByName, isSubmitting, onDeviceChange, onSubmit, 
   } = useForm<IncidentFormValues>({
     resolver: zodResolver(incidentSchema),
     defaultValues: {
-      laboratory_id: '',
-      device_id: '',
+      laboratory_id: initialDevice ? String(initialDevice.laboratory_id) : '',
+      device_id: initialDevice ? String(initialDevice.device_id) : '',
       component_id: '',
       priority: undefined,
       opened_at: toDateTimeInputValue(DEMO_NOW),

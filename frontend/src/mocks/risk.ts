@@ -144,4 +144,33 @@ function buildResults(): DeviceRiskResult[] {
   return results
 }
 
-export const deviceRiskResults: DeviceRiskResult[] = buildResults()
+// Resultados de ejecuciones anteriores, para el gráfico "Evolución del riesgo" (Figma 4.0):
+// H103-PC-03 estuvo en riesgo bajo sin historial en agosto y en riesgo medio en septiembre.
+function buildPastResults(startId: number): DeviceRiskResult[] {
+  const device = devices.find((d) => d.code === 'H103-PC-03')!
+  const past: [runId: number, level: RiskLevelCode, method: DeviceRiskResult['classification_method'], count: number, calculatedAt: string][] = [
+    [9, 'LOW', 'INSUFFICIENT_HISTORY', 1, '2026-08-27T10:30:00-05:00'],
+    [18, 'MEDIUM', 'KMEANS', 7, '2026-09-28T15:30:00-05:00'],
+  ]
+  return past.map(([runId, level, method, count, calculatedAt], i) => ({
+    ...record(startId + i),
+    kmeans_run_id: runId,
+    device_id: device.id,
+    classification_method: method,
+    kmeans_centroid_id: null,
+    risk_level_id: riskLevelId(level),
+    incident_count: count,
+    days_since_last_failure: 0,
+    avg_failure_interval_days: method === 'KMEANS' ? 6 : null,
+    distance_to_centroid: null,
+    is_current: false,
+    calculated_at: calculatedAt,
+  }))
+}
+
+const currentResults = buildResults()
+
+export const deviceRiskResults: DeviceRiskResult[] = [
+  ...currentResults,
+  ...buildPastResults(currentResults.length + 1),
+]

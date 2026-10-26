@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useNavigate, useSearchParams } from 'react-router'
 import { useToast } from '../../../components/ui/toast/useToast'
 import { useCurrentUser } from '../../auth/useCurrentUser'
-import type { CreateIncidentInput } from '../api'
+import { findRegistrationDevice, type CreateIncidentInput } from '../api'
 import DeviceInfoPanel from '../components/DeviceInfoPanel'
 import IncidentForm from '../components/IncidentForm'
 import { useCreateIncident } from '../useIncidents'
@@ -12,7 +12,13 @@ function IncidentCreatePage() {
   const { user } = useCurrentUser()
   const { showToast } = useToast()
   const createIncident = useCreateIncident()
-  const [deviceId, setDeviceId] = useState<number | null>(null)
+  const [searchParams] = useSearchParams()
+  // ?equipo=H103-PC-03 abre el formulario con ese equipo elegido.
+  const [initialDevice] = useState(() => {
+    const code = searchParams.get('equipo')
+    return code ? findRegistrationDevice(code) : null
+  })
+  const [deviceId, setDeviceId] = useState<number | null>(initialDevice?.device_id ?? null)
 
   function handleSubmit(input: CreateIncidentInput) {
     createIncident.mutate(input, {
@@ -30,6 +36,7 @@ function IncidentCreatePage() {
       <h1 className="text-2xl font-semibold">Registrar incidencia</h1>
       <div className="flex items-start gap-6">
         <IncidentForm
+          initialDevice={initialDevice}
           reportedByName={`${user.first_name} ${user.last_name}`}
           isSubmitting={createIncident.isPending}
           onDeviceChange={setDeviceId}
