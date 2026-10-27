@@ -86,8 +86,10 @@ const extraLowKmeans = [
   'H104-UPS-09', 'H105-AIO-02', 'H105-AIO-07', 'H105-UPS-05', 'H105-UPS-11', 'H105-TV-02',
 ]
 
+// Con 3 incidencias y fallas más antiguas, quedan después de los 4 medios del Figma
+// al ordenar por incidencias (Figma 5.4).
 extraMedium.forEach((code, i) => {
-  mediumRisk[code] = [3 + (i % 3), 5 + ((i * 7) % 25), 18 + ((i * 5) % 12)]
+  mediumRisk[code] = [3, 20 + ((i * 3) % 10), 22 + ((i * 5) % 10)]
 })
 extraLowKmeans.forEach((code, i) => {
   lowRiskKmeans[code] = [2 + (i % 2), 40 + ((i * 11) % 50), 50 + ((i * 13) % 40)]

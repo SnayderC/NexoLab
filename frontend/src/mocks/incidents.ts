@@ -5,7 +5,7 @@ import { findDeviceByCode } from './devices'
 import { record } from './record'
 
 // Incidencias de demostración (parte 3 de docs/PROMPT_FIGMA_MAKE_NEXOLAB.md y Figma 3.1):
-// 7 abiertas y 20 cerradas. Registrar y cerrar las modifican en memoria; al recargar
+// 7 abiertas y 26 cerradas. Registrar y cerrar las modifican en memoria; al recargar
 // la página vuelven a este estado inicial.
 
 // Tiempo promedio de atención de los últimos 30 días, tal como aparece en el Figma.
@@ -82,6 +82,32 @@ const seeds: IncidentSeed[] = [
   {
     id: 14, device: 'H103-PC-03', component: 'PC', priority: 'MEDIUM', opened_at: '2026-09-13T10:20:00-05:00', reported_by_id: ANDREA_ID, closed_by_id: ANDREA_ID, description: 'El equipo se reinicia solo.',
     closing: { closed_at: '2026-09-13T11:10:00-05:00', minutes: 50, action: 'RESOLVED', diagnosis: 'Reinicios inesperados; se actualizaron los controladores.' },
+  },
+  // Equipos retirados del Figma 5.5: H101-MON-04 (2 incidencias) y H105-UPS-01 (4).
+  // La última de cada uno se cerró con "Requiere reemplazo" en la fecha de retiro.
+  {
+    id: 12, device: 'H101-MON-04', component: 'MONITOR', priority: 'MEDIUM', opened_at: '2026-09-04T08:40:00-05:00', reported_by_id: CARLOS_ID, description: 'La pantalla muestra líneas horizontales.',
+    closing: { closed_at: '2026-09-04T09:10:00-05:00', minutes: 30, action: 'RESOLVED', diagnosis: 'Cable de video suelto; se reconectó.' },
+  },
+  {
+    id: 20, device: 'H101-MON-04', component: 'MONITOR', priority: 'HIGH', opened_at: '2026-09-21T09:00:00-05:00', reported_by_id: CARLOS_ID, description: 'El monitor no enciende.',
+    closing: { closed_at: '2026-09-21T10:00:00-05:00', minutes: 60, action: 'REPLACEMENT_REQUIRED', diagnosis: 'Panel dañado; sin reparación posible.' },
+  },
+  {
+    id: 1, device: 'H105-UPS-01', component: 'UPS', priority: 'LOW', opened_at: '2026-08-20T10:00:00-05:00', reported_by_id: CARLOS_ID, description: 'El UPS emite un pitido constante.',
+    closing: { closed_at: '2026-08-20T10:15:00-05:00', minutes: 15, action: 'RESOLVED', diagnosis: 'Alarma activada por sobrecarga; se redistribuyeron las conexiones.' },
+  },
+  {
+    id: 3, device: 'H105-UPS-01', component: 'UPS', priority: 'MEDIUM', opened_at: '2026-08-25T14:00:00-05:00', reported_by_id: CARLOS_ID, description: 'La batería dura pocos minutos.',
+    closing: { closed_at: '2026-08-25T14:25:00-05:00', minutes: 25, action: 'RESOLVED', diagnosis: 'Batería descalibrada; se realizó un ciclo de carga.' },
+  },
+  {
+    id: 4, device: 'H105-UPS-01', component: 'UPS', priority: 'HIGH', opened_at: '2026-08-31T09:00:00-05:00', reported_by_id: CARLOS_ID, description: 'El UPS se apaga al cortar la energía.',
+    closing: { closed_at: '2026-08-31T09:40:00-05:00', minutes: 40, action: 'RESOLVED', diagnosis: 'Fusible interno quemado; se reemplazó.' },
+  },
+  {
+    id: 5, device: 'H105-UPS-01', component: 'UPS', priority: 'HIGH', opened_at: '2026-09-05T10:30:00-05:00', reported_by_id: CARLOS_ID, description: 'El UPS no retiene carga.',
+    closing: { closed_at: '2026-09-05T11:30:00-05:00', minutes: 60, action: 'REPLACEMENT_REQUIRED', diagnosis: 'Batería agotada; el equipo no admite reemplazo de batería.' },
   },
   // Cerradas que aparecen en el Figma 3.1 (no están en el documento de datos).
   {

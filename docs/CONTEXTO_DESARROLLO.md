@@ -592,6 +592,8 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 | D-17 | Los datos de demostración copian el Figma tal cual: solo las 12 incidencias del documento, y los indicadores y promedios del prototipo (48 min, 9,2 incidencias) se guardan como valores fijos | Son datos temporales que desaparecen al conectar el backend (fase 7); el backend calculará los valores reales |
 | D-18 | La hora de referencia de los datos de demostración es el 17/10/2026 11:30 (`mocks/demoClock.ts`); registrar y cerrar incidencias modifican los datos en memoria | Es la hora que usa la página 03 del Figma. Los cambios permiten probar el flujo completo y se pierden al recargar, igual que todo dato de demostración |
 | D-19 | El gráfico "Evolución del riesgo" se dibuja con SVG propio en lugar de Recharts | Son escalones de 3 niveles con un color por tramo (Figma 4.0): con SVG queda idéntico y se evita una dependencia. Recharts queda en la sección 4 por si se necesitan gráficos más complejos |
+| D-20 | Un equipo retirado no vuelve a activarse; al editar un equipo no se cambian su código, laboratorio ni tipo | El retiro es el final de la vida del equipo (un registro por error se anula con `is_active`, sección 18). El código `LAB-TIPO-NN` incluye el laboratorio y el tipo |
+| D-21 | El código de un equipo nuevo debe empezar con el laboratorio y el tipo elegidos (ej.: H103 + PC → `H103-PC-`) | Complementa RN-11: evita códigos con formato válido pero que no corresponden al equipo |
 
 ---
 
