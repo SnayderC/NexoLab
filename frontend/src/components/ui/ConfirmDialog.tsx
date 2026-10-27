@@ -9,7 +9,8 @@ type ConfirmDialogProps = {
   title: string
   message: string
   confirmLabel: string
-  cancelLabel?: string
+  // null quita el botón de cancelar, para avisos de un solo botón como "Entendido" (Figma 5.3).
+  cancelLabel?: string | null
   // "danger" para acciones como retirar un equipo.
   variant?: 'primary' | 'danger'
 }
@@ -35,7 +36,7 @@ function ConfirmDialog({
         <p className="leading-5.5">{message}</p>
       </div>
       <footer className="flex justify-end gap-3 border-t border-border-subtle px-6 py-5">
-        <Button onClick={onClose}>{cancelLabel}</Button>
+        {cancelLabel !== null && <Button onClick={onClose}>{cancelLabel}</Button>}
         <Button variant={variant} onClick={onConfirm}>
           {confirmLabel}
         </Button>

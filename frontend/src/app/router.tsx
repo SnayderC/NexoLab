@@ -40,7 +40,7 @@ export const router = createBrowserRouter([
       {
         path: 'admin',
         element: <RequireAdmin />,
-        handle: { title: 'Administración' },
+        handle: { title: 'Administración', adminOnly: true },
         children: [
           { index: true, element: <Navigate to="laboratorios" replace /> },
           {
