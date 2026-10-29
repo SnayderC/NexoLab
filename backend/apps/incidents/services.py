@@ -81,7 +81,17 @@ def recalculate_after_close(incident, user):
         logger.warning('No se pudo recalcular el riesgo después de cerrar %s', incident.incident_number)
 
 
-def void_incident(incident: Incident) -> None:
-    """RN-22: anular una incidencia registrada por error. Deja de contar en el riesgo y los indicadores."""
-    incident.is_active = False
-    incident.save(update_fields=['is_active', 'updated_at'])
+def void_incident(incident: Incident, voided_by) -> None:
+    """RN-22: anular una incidencia registrada por error. Deja de contar en el riesgo y los indicadores,
+    así que el riesgo se recalcula (disparador MANUAL: lo pidió el administrador, D-39)."""
+    with transaction.atomic():
+        incident.is_active = False
+        incident.save(update_fields=['is_active', 'updated_at'])
+        transaction.on_commit(lambda: recalculate_after_void(incident, voided_by))
+
+
+def recalculate_after_void(incident, user):
+    try:
+        calculate_risk(KmeansRun.TriggerType.MANUAL, triggered_by=user)
+    except RiskCalculationError:
+        logger.warning('No se pudo recalcular el riesgo después de anular %s', incident.incident_number)

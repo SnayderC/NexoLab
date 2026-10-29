@@ -80,7 +80,7 @@ Base: `/api/v1/`. Autenticación por sesión de Django (cookie `sessionid`, `htt
 | `POST incidents` | Con sesión | 201 con la incidencia y su número (RN-14) · 400 (RN-13, RN-16, D-24) |
 | `GET incidents/{número}` | Con sesión | 200 · 404 (las anuladas no se muestran) |
 | `POST incidents/{número}/close` | Con sesión | 200 con `retired_device_code` (RN-19) · 400 (RN-17) · 409 ya cerrada (RN-21). Recalcula el riesgo (`INCIDENT_CLOSED`) |
-| `POST incidents/{número}/void` | Administrador | 204 (RN-22). Aún sin botón en la interfaz |
+| `POST incidents/{número}/void` | Administrador | 204 (RN-22). Recalcula el riesgo (`MANUAL`, D-39) |
 | `GET devices/eligible` | Con sesión | 200 con los equipos que admiten incidencias (RN-13), por `laboratory_id` o `code` |
 | `GET devices` | Con sesión | 200 `{items, total}` con riesgo vigente; filtros `search`, `laboratory_id`, `device_type_id`, `status`, `risk_level` y `page` (10 por página) |
 | `POST devices` | Administrador | 201 · 400 (formato RN-11, prefijo D-21, duplicado, laboratorio inactivo, tipo no seleccionado) |

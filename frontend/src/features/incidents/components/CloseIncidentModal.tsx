@@ -7,6 +7,7 @@ import { IncidentRequestError, type CloseIncidentInput } from '../api'
 import { useCloseIncident, useIncident } from '../useIncidents'
 import CloseIncidentForm, { CLOSE_INCIDENT_FORM_ID } from './CloseIncidentForm'
 import IncidentSummary from './IncidentSummary'
+import VoidIncidentButton from './VoidIncidentButton'
 
 type CloseIncidentModalProps = {
   incidentNumber: string | null
@@ -51,6 +52,7 @@ function CloseIncidentModal({ incidentNumber, onClose }: CloseIncidentModalProps
       title="Cerrar incidencia"
       footer={
         <>
+          {incidentNumber && <VoidIncidentButton incidentNumber={incidentNumber} onVoided={onClose} />}
           <Button onClick={onClose}>Cancelar</Button>
           <Button
             type="submit"

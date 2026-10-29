@@ -124,6 +124,16 @@ class ListTests(IncidentTestCase):
         self.assertEqual(self.client.get(reverse('incident-detail', args=[voided])).status_code,
                          status.HTTP_404_NOT_FOUND)
 
+    def test_rn22_anular_recalcula_el_riesgo(self):
+        number = self.register().data['incident_number']
+        self.client.force_authenticate(self.admin)
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(reverse('incident-void', args=[number]))
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Incident.objects.get(incident_number=number).is_active)
+        run = KmeansRun.objects.get()
+        self.assertEqual((run.trigger_type, run.triggered_by), ('MANUAL', self.admin))
+
     def test_rn06_solo_el_administrador_anula(self):
         number = self.register().data['incident_number']
         self.assertEqual(self.client.post(reverse('incident-void', args=[number])).status_code,

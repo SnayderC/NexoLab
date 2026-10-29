@@ -7,6 +7,7 @@ import { useIncident } from '../useIncidents'
 import DetailField from './DetailField'
 import IncidentStatusBadge from './IncidentStatusBadge'
 import IncidentSummary from './IncidentSummary'
+import VoidIncidentButton from './VoidIncidentButton'
 
 type IncidentDetailModalProps = {
   incidentNumber: string | null
@@ -22,7 +23,12 @@ function IncidentDetailModal({ incidentNumber, onClose }: IncidentDetailModalPro
       open={incidentNumber !== null}
       onClose={onClose}
       title="Detalle de incidencia"
-      footer={<Button onClick={onClose}>Cerrar</Button>}
+      footer={
+        <>
+          {incidentNumber && <VoidIncidentButton incidentNumber={incidentNumber} onVoided={onClose} />}
+          <Button onClick={onClose}>Cerrar</Button>
+        </>
+      }
     >
       {!incident ? (
         <div className="flex flex-col gap-4" aria-hidden>

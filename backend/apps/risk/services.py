@@ -4,8 +4,9 @@ y POST risk/recalculate.
 
 Qué modelo se usa en cada ejecución (D-33):
 - INITIAL_LOAD: se entrena con el dataset de Kaggle y con él se clasifican los equipos del Bloque H.
-- Resto de ejecuciones: si al menos RISK_MIN_OWN_HISTORY_DEVICES equipos tienen historial propio,
-  se entrena con ese historial; si no, se clasifica con el modelo de la última carga inicial.
+- Resto de ejecuciones: si al menos RISK_MIN_OWN_HISTORY_DEVICES equipos (30 por defecto, configurable por
+  instalación) tienen historial propio, se entrena con ese historial; si no, se clasifica con el modelo de la
+  última carga inicial.
 """
 
 import time
@@ -72,7 +73,8 @@ def _build_model(trigger_type, own_rows):
         # Las métricas describen la calidad del modelo entrenado con Kaggle.
         return model, kmeans.classify(model, own_rows), training, {**source, 'metrics_scope': 'TRAINING'}
 
-    if len(own_rows) >= settings.RISK_MIN_OWN_HISTORY_DEVICES:
+    # Nunca menos de k equipos: K-Means no puede formar 3 grupos con menos.
+    if len(own_rows) >= max(settings.RISK_MIN_OWN_HISTORY_DEVICES, kmeans.CLUSTER_COUNT):
         model, clustering = kmeans.train(own_rows)
         return model, clustering, clustering, {'type': 'OWN_HISTORY', 'metrics_scope': 'TRAINING'}
 

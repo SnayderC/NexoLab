@@ -119,6 +119,12 @@ export async function closeIncident(
   return send(`/incidents/${encodeURIComponent(incidentNumber)}/close`, input)
 }
 
+// RN-22: anular una incidencia registrada por error (solo administrador). Deja de contar en el riesgo
+// y en los indicadores, y el backend recalcula el riesgo.
+export async function voidIncident(incidentNumber: string): Promise<void> {
+  await send(`/incidents/${encodeURIComponent(incidentNumber)}/void`, undefined)
+}
+
 // ---------- Equipos del formulario de registro (RN-13) ----------
 
 export type EligibleDevice = { id: number; code: string; laboratory_id: number; label: string }

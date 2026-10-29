@@ -105,4 +105,5 @@ REST_FRAMEWORK = {
 }
 
 # K-Means (sección 10, D-33): equipos con historial propio necesarios para dejar de usar el modelo de Kaggle.
+# Se ajusta por instalación en .env según el tamaño de los laboratorios.
 RISK_MIN_OWN_HISTORY_DEVICES = env('RISK_MIN_OWN_HISTORY_DEVICES')

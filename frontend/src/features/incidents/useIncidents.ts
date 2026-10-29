@@ -3,6 +3,7 @@ import {
   closeIncident,
   createIncident,
   getIncident,
+  voidIncident,
   listIncidents,
   type CloseIncidentInput,
   type IncidentListFilters,
@@ -39,6 +40,11 @@ function useInvalidateAfterChange() {
 export function useCreateIncident() {
   const invalidate = useInvalidateAfterChange()
   return useMutation({ mutationFn: createIncident, onSuccess: invalidate })
+}
+
+export function useVoidIncident() {
+  const invalidate = useInvalidateAfterChange()
+  return useMutation({ mutationFn: voidIncident, onSuccess: invalidate })
 }
 
 export function useCloseIncident() {

@@ -153,7 +153,7 @@ class LaboratoryActivationTests(LaboratoryTestCase):
                          status.HTTP_404_NOT_FOUND)
 
 
-@override_settings(RISK_MIN_OWN_HISTORY_DEVICES=1)
+@override_settings(RISK_MIN_OWN_HISTORY_DEVICES=3)
 class DeviceTests(LaboratoryTestCase):
     """Equipos (Figma 04 y 5.4 a 5.8): lista con riesgo, alta, edición, retiro e historial."""
 

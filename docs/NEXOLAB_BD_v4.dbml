@@ -235,7 +235,7 @@ Table hst_kmeans_centroids [headercolor: #B45309] {
   updated_at timestamptz [not null, default: `now()`]
 
   indexes {
-    (kmeans_run_id, cluster_index) [unique, name: 'uq_hst_kmeans_centroids_run_cluster']
+    (kmeans_run_id, cluster_index) [unique, name: 'uq_hst_kmc_run_cluster']
   }
   Note: 'Perfil promedio de cada grupo en una ejecución.'
 }

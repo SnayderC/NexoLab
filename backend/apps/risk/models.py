@@ -76,8 +76,7 @@ class KmeansCentroid(BaseModel):
     class Meta:
         db_table = 'hst_kmeans_centroids'
         constraints = [
-            # El DBML lo llama uq_hst_kmeans_centroids_run_cluster (35 caracteres); se acorta
-            # para cumplir el límite de 30 de la sección 7 (ver D-26).
+            # Nombre corto para cumplir el límite de 30 caracteres de la sección 7 (D-26).
             models.UniqueConstraint(fields=['kmeans_run', 'cluster_index'], name='uq_hst_kmc_run_cluster'),
         ]
 

@@ -124,6 +124,10 @@ class RiskDataMixin:
     def current(self, code):
         return DeviceRiskResult.objects.select_related('risk_level').get(device=self.devices[code], is_current=True)
 
+    def keep_history_only_for(self, *codes):
+        """Anula las incidencias de los demás equipos: así quedan menos equipos con historial que grupos."""
+        Incident.objects.exclude(device__in=[self.devices[code] for code in codes]).update(is_active=False)
+
 
 @override_settings(RISK_MIN_OWN_HISTORY_DEVICES=3)
 class OwnHistoryRunTests(RiskDataMixin, TestCase):
@@ -165,6 +169,7 @@ class OwnHistoryRunTests(RiskDataMixin, TestCase):
 
 class KaggleModelRunTests(RiskDataMixin, TestCase):
     def test_sin_modelo_inicial_la_ejecucion_falla_y_no_cambia_el_riesgo(self):
+        self.keep_history_only_for('PC-01', 'PC-02')
         with self.assertRaises(RiskCalculationError):
             calculate_risk(Trigger.MANUAL)
         run = KmeansRun.objects.get()
@@ -180,7 +185,7 @@ class KaggleModelRunTests(RiskDataMixin, TestCase):
         self.assertGreater(source['training_device_count'], 100)
         self.assertGreater(initial.silhouette_score, 0)
 
-        # Con menos equipos propios que el mínimo (30 por defecto), se clasifica con el modelo de Kaggle.
+        # Con menos equipos con historial que el mínimo (30 por defecto), se clasifica con el modelo de Kaggle (D-33).
         manual = calculate_risk(Trigger.MANUAL)
         self.assertEqual(manual.parameters['source'], {
             'type': 'KAGGLE_MODEL', 'model_run_id': initial.id, 'metrics_scope': 'ASSIGNMENT',
@@ -200,7 +205,8 @@ class RecalculateApiTests(RiskDataMixin, APITestCase):
 
     def test_error_de_calculo_responde_409(self):
         self.client.force_authenticate(self.admin)
-        response = self.client.post(reverse('risk-recalculate'))  # sin modelo inicial
+        self.keep_history_only_for('PC-01')
+        response = self.client.post(reverse('risk-recalculate'))  # 1 equipo con historial y sin modelo inicial
         self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
         self.assertEqual(response.data['code'], 'risk_failed')
 

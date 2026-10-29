@@ -136,12 +136,12 @@ class IncidentCloseView(APIView):
 
 
 class IncidentVoidView(APIView):
-    """POST incidents/{número}/void (administrador, RN-22). Aún no tiene botón en la interfaz (sección 18)."""
+    """POST incidents/{número}/void (administrador, RN-22). Recalcula el riesgo después de anular."""
 
     permission_classes = [IsAdmin]
 
     def post(self, request, number):
-        void_incident(_get(number))
+        void_incident(_get(number), voided_by=request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
