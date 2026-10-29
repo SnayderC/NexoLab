@@ -1,0 +1,6 @@
+# Backend de NexoLab (sección 4 de docs/CONTEXTO_DESARROLLO.md).
+# Rangos acotados a la versión menor para recibir solo correcciones.
+Django>=5.2.18,<5.3
+djangorestframework>=3.18,<3.19
+django-environ>=0.14,<0.15
+psycopg[binary]>=3.3,<3.4

@@ -7,7 +7,7 @@ import Button from '../../../components/ui/Button'
 import FormField from '../../../components/ui/FormField'
 import PasswordInput from '../../../components/ui/PasswordInput'
 import { useToast } from '../../../components/ui/toast/useToast'
-import { changePassword, WrongCurrentPasswordError } from '../../auth/api'
+import { changePassword, InvalidNewPasswordError, WrongCurrentPasswordError } from '../../auth/api'
 import { newPasswordSchema } from '../../users/passwordSchema'
 
 const MIN_LENGTH = 8
@@ -60,10 +60,16 @@ function ChangePasswordForm() {
         reset()
         showToast({ message: 'Contraseña actualizada' })
       },
-      onError: (error) =>
-        error instanceof WrongCurrentPasswordError
-          ? setError('current', { message: 'La contraseña actual no es correcta' })
-          : showToast({ message: 'No se pudo actualizar la contraseña', tone: 'error' }),
+      onError: (error) => {
+        if (error instanceof WrongCurrentPasswordError) {
+          setError('current', { message: 'La contraseña actual no es correcta' })
+        } else if (error instanceof InvalidNewPasswordError) {
+          // RN-04: mensajes de los validadores de Django (ej.: "Esta contraseña es demasiado común").
+          setError('next', { message: error.messages.join(' ') })
+        } else {
+          showToast({ message: 'No se pudo actualizar la contraseña', tone: 'error' })
+        }
+      },
     })
   }
 

@@ -1,14 +1,16 @@
 import { Navigate, useLocation } from 'react-router'
+import PageLoader from '../../../components/ui/PageLoader'
 import BrandPanel from '../components/BrandPanel'
 import LoginForm from '../components/LoginForm'
 import { useAuth } from '../useAuth'
 
 function LoginPage() {
-  const { user, login } = useAuth()
+  const { user, isLoading, login } = useAuth()
   const location = useLocation()
   // Si RequireAuth lo trajo aquí, vuelve a la pantalla que quería ver.
   const from = (location.state as { from?: string } | null)?.from ?? '/'
 
+  if (isLoading) return <PageLoader />
   // Con sesión iniciada (también justo después de entrar), sale del login.
   if (user) return <Navigate to={from} replace />
 

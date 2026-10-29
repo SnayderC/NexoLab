@@ -5,4 +5,13 @@ import { defineConfig } from 'vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  server: {
+    // La API de Django se sirve por el mismo origen que la aplicación: así la cookie de sesión
+    // y la de CSRF funcionan sin configurar CORS (decisión D-25).
+    // changeOrigin: false conserva el Host del navegador, para que la verificación de origen
+    // de la protección CSRF de Django vea la misma dirección que envía el navegador.
+    proxy: {
+      '/api': { target: 'http://localhost:8000', changeOrigin: false },
+    },
+  },
 })

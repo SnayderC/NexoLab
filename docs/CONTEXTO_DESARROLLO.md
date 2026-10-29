@@ -3,7 +3,7 @@
 > **Qué es este documento:** la referencia única del proyecto para desarrollar en VS Code. Sirve para el equipo y también como contexto para asistentes de IA (GitHub Copilot, Claude, etc.).
 > **Dónde va:** en el repositorio, en `docs/CONTEXTO_DESARROLLO.md`.
 > **Regla de oro:** si algo del código contradice este documento, se corrige uno de los dos y se registra en la sección 17 (Decisiones).
-> **Última actualización:** 24/10/2026 · Base de datos v4 y prototipo de Figma aprobados por el tutor y la docente.
+> **Última actualización:** 29/10/2026 · Backend creado (modelos v4, datos de demostración y autenticación) y login del frontend conectado a la API real.
 
 ---
 
@@ -95,7 +95,7 @@ Versiones verificadas el 24/10/2026. Al instalar, se fijan con los archivos de b
 
 | Herramienta | Versión | Para qué |
 |---|---|---|
-| Python | 3.12 | Lenguaje |
+| Python | 3.12 o superior (el desarrollo usa 3.14, ver D-27) | Lenguaje |
 | Django | 5.2 LTS (5.2.18) | Framework web. LTS = soporte extendido |
 | Django REST Framework | 3.18 | API REST |
 | PostgreSQL | 17 (en Docker) | Base de datos |
@@ -456,8 +456,8 @@ Base: `/api/v1/`. JSON en `snake_case`. Todos los endpoints requieren autenticac
 
 | Método y ruta | Uso |
 |---|---|
-| `POST auth/login` · `POST auth/logout` · `GET auth/me` | Sesión |
-| `POST auth/change-password` | Mi perfil |
+| `GET auth/csrf` · `POST auth/login` · `POST auth/logout` · `GET auth/me` | Sesión ✅ |
+| `POST auth/change-password` | Mi perfil ✅ |
 | `GET catalogs` | Componentes, estados, acciones, niveles de riesgo y tipos seleccionados |
 | `GET dashboard/summary` | Indicadores, grupos de riesgo y última ejecución |
 | `GET incidents` · `POST incidents` | Lista con filtros y paginación · registrar |
@@ -472,7 +472,9 @@ Base: `/api/v1/`. JSON en `snake_case`. Todos los endpoints requieren autenticac
 | `POST users/{id}/reset-password` 🔒 · `POST users/{id}/activate` 🔒 · `POST users/{id}/deactivate` 🔒 | Usuarios |
 | `POST risk/recalculate` 🔒 | Recálculo manual |
 
-**Errores:** códigos HTTP estándar (400 validación, 401 sin sesión, 403 sin permiso, 404 no existe, 409 conflicto de regla de negocio). Cuerpo: `{"detail": "mensaje en español"}` o, en validaciones, `{"campo": ["mensaje"]}`. Nunca se devuelven trazas internas.
+Los marcados con ✅ ya están programados y probados (detalle en `backend/README.md`).
+
+**Errores:** códigos HTTP estándar (400 validación, 403 sin sesión o sin permiso (ver D-25), 404 no existe, 409 conflicto de regla de negocio). Cuerpo: `{"detail": "mensaje en español"}` o, en validaciones, `{"campo": ["mensaje"]}`. Nunca se devuelven trazas internas.
 
 ---
 
@@ -498,10 +500,11 @@ En la defensa se aclara que son **datos de demostración**, no datos reales del 
 Orden acordado: **primero la interfaz con datos de demostración, después el backend, y al final conectarlos.**
 
 ### Fase 0 — Preparación ✅ (base lista)
-- [x] Proyecto Django con modelos v4, migraciones y catálogos.
-- [x] 14 pruebas de integridad de la BD pasando sobre PostgreSQL.
-- [ ] Crear el repositorio privado en GitHub y subir la base.
-- [ ] Agregar `docs/` con este documento, el DBML y el prompt de Figma.
+- [x] Proyecto Django con modelos v4, migraciones y catálogos (29/10/2026).
+- [x] PostgreSQL 17 en Docker (`docker-compose.yml`, puerto 5433).
+- [ ] Pruebas de integridad de la BD (restricciones y claves foráneas) sobre PostgreSQL.
+- [x] Crear el repositorio privado en GitHub y subir la base.
+- [x] Agregar `docs/` con este documento, el DBML y el prompt de Figma.
 - [ ] Crear `.github/copilot-instructions.md`.
 
 ### Fase 1 — Base del frontend
@@ -519,14 +522,14 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 - [ ] Cada pantalla con sus estados: carga, vacío, error y validaciones.
 - **Terminado cuando:** la aplicación se ve y se comporta como el prototipo, leyendo de `mocks/` a través de `api.ts`.
 
-### Fase 3 — Autenticación y permisos (backend)
-- [ ] Decidir el método de autenticación (sección 18).
-- [ ] Login, logout, usuario actual, cambio de contraseña.
-- [ ] Permisos por rol (técnico y administrador) con pruebas.
+### Fase 3 — Autenticación y permisos (backend) ✅
+- [x] Decidir el método de autenticación: sesión de Django con CSRF (D-25).
+- [x] Login, logout, usuario actual, cambio de contraseña.
+- [x] Permisos por rol (técnico y administrador) con pruebas (16 pruebas en `apps/users/tests.py`).
 
 ### Fase 4 — API de administración
-- [ ] Laboratorios, equipos, catálogo y usuarios, con sus reglas y pruebas.
-- [ ] Comando para cargar los laboratorios y equipos del Bloque H.
+- [ ] Laboratorios, equipos, catálogo y usuarios, con sus reglas y pruebas. (`GET users` ya existe para probar el permiso de administrador.)
+- [x] Comando `seed_demo` con catálogos, usuarios, laboratorios y equipos de demostración (D-28). Falta el inventario real (sección 18).
 
 ### Fase 5 — API de incidencias
 - [ ] Registrar, listar con filtros, detalle, cerrar y anular.
@@ -538,12 +541,14 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 - [ ] Endpoint del dashboard e historial de riesgo, con pruebas.
 
 ### Fase 7 — Conectar frontend y backend
-- [ ] Cambiar cada `api.ts` de `mocks/` a la API real.
+- [x] Cliente de API (`lib/apiClient.ts`) y proxy de Vite (D-25).
+- [x] `features/auth/api.ts`: login, sesión, cierre de sesión y cambio de contraseña con la API real.
+- [ ] Cambiar el resto de `api.ts` de `mocks/` a la API real.
 - [ ] Probar todos los flujos con los dos roles.
 
 ### Fase 8 — Cierre
-- [ ] Docker Compose con todos los servicios.
-- [ ] Comando de datos de demostración.
+- [ ] Docker Compose con todos los servicios (por ahora solo la base de datos).
+- [ ] Comando de datos de demostración completo (faltan incidencias y resultados de K-Means).
 - [ ] Documentación final y guion de la demostración.
 
 ---
@@ -588,7 +593,7 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 | D-13 | Tokens de badges, avisos, sombras y `text-2xs` agregados a la sección 11 | Los componentes del Figma los usan; así ningún componente lleva colores fijos |
 | D-14 | `Select` con lista desplegable propia en lugar del `<select>` del navegador | El `<select>` nativo no permite el estilo del Figma (opción marcada con ✓ y fondo índigo) |
 | D-15 | Se agrega `@hookform/resolvers` 5 | Es el adaptador oficial para validar formularios de React Hook Form con Zod. La versión 6 tiene un conflicto entre sus dependencias opcionales |
-| D-16 | Login simulado hasta la fase 7: contraseña de demostración en `VITE_DEMO_PASSWORD` (`frontend/.env.local`) y sesión en `localStorage` | Permite probar todos los estados del login sin backend y sin credenciales en el código. Se reemplaza por la sesión de Django (sección 18) |
+| D-16 | *(Reemplazada por D-25 el 29/10/2026)* Login simulado hasta la fase 7: contraseña de demostración en `VITE_DEMO_PASSWORD` (`frontend/.env.local`) y sesión en `localStorage` | Permite probar todos los estados del login sin backend y sin credenciales en el código. Se reemplaza por la sesión de Django (sección 18) |
 | D-17 | Los datos de demostración copian el Figma tal cual: solo las 12 incidencias del documento, y los indicadores y promedios del prototipo (48 min, 9,2 incidencias) se guardan como valores fijos | Son datos temporales que desaparecen al conectar el backend (fase 7); el backend calculará los valores reales |
 | D-18 | La hora de referencia de los datos de demostración es el 17/10/2026 11:30 (`mocks/demoClock.ts`); registrar y cerrar incidencias modifican los datos en memoria | Es la hora que usa la página 03 del Figma. Los cambios permiten probar el flujo completo y se pierden al recargar, igual que todo dato de demostración |
 | D-19 | El gráfico "Evolución del riesgo" se dibuja con SVG propio en lugar de Recharts | Son escalones de 3 niveles con un color por tramo (Figma 4.0): con SVG queda idéntico y se evita una dependencia. Recharts queda en la sección 4 por si se necesitan gráficos más complejos |
@@ -597,12 +602,17 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 | D-22 | Los códigos de los 32 tipos del catálogo y la carga de trabajo de los usuarios (incidencias registradas y cerradas) se copian del Figma en `mocks/` | Son datos de demostración; el backend calculará la carga de trabajo con las incidencias reales |
 | D-23 | En el Dashboard, la tabla "Incidencias abiertas" va antes de las columnas de riesgo (cambia el orden del Figma 2.0) | Retroalimentación de la tutora: lo primero que se atiende son las incidencias abiertas |
 | D-24 | Se agregan los componentes Software, Red / Internet y Otro a `cat_components`; con "Otro", la descripción debe tener al menos 20 caracteres | Retroalimentación de la tutora: hay fallas que no son de una pieza física (ej.: sistema operativo). Se mantiene una lista cerrada para poder contar por componente, y el detalle va en la descripción. Son filas del catálogo: el DBML no cambia |
+| D-25 | Autenticación con la sesión de Django: cookie `sessionid` `httpOnly` (8 horas) y protección CSRF. El frontend pide `GET auth/csrf`, lee la cookie `csrftoken` y la envía en la cabecera `X-CSRFToken`. En desarrollo, Vite reenvía `/api` a Django (`changeOrigin: false`), así que todo funciona en un solo origen y sin CORS. Sin sesión, la API responde 403 (no 401) | Más segura que un token JWT en `localStorage` (JavaScript no puede leer la cookie) y requiere menos código. DRF responde 403 con autenticación por sesión porque no hay cabecera `WWW-Authenticate`; el frontend trata 401 y 403 igual al pedir el usuario actual |
+| D-26 | La restricción única de `hst_kmeans_centroids` se llama `uq_hst_kmc_run_cluster` en lugar del nombre del DBML | Django limita los nombres de restricciones a 30 caracteres y el del DBML tiene 35. Las columnas y la regla son las mismas. **Pendiente:** actualizar el nombre en el DBML con aprobación |
+| D-27 | El backend se desarrolla con Python 3.14 | Es la versión instalada en el equipo de desarrollo y Django 5.2.18 la soporta (desde 5.2.8). El código no usa nada exclusivo de 3.14, así que 3.12 sigue funcionando |
+| D-28 | Comando `seed_demo` (`apps/core`) con la contraseña de `DEMO_PASSWORD` y los mismos identificadores que `frontend/src/mocks/`. Por ahora carga catálogos, usuarios, laboratorios y equipos; las incidencias y el riesgo se cargan en las fases 5 y 6 | Ninguna credencial en el código. Mismos identificadores para que las pantallas que aún usan datos de demostración coincidan con la API |
 
 ---
 
 ## 18. Pendientes y preguntas abiertas
 
-- [ ] **Método de autenticación** (fase 3). Propuesta: sesión de Django con cookie `httpOnly` y protección CSRF, aprovechando el proxy de Vite. Es más segura que guardar un token JWT en el navegador y requiere menos código.
+- [x] **Método de autenticación** (fase 3). Resuelto en D-25: sesión de Django con cookie `httpOnly` y CSRF.
+- [ ] **Nombre de la restricción única de `hst_kmeans_centroids`** (D-26): aprobar el cambio en el DBML.
 - [ ] **Confirmar D-06** (sin Celery ni Redis).
 - [ ] **Inventario real** de los equipos del Bloque H (código, laboratorio y tipo) para el comando de carga. Si no existe, se usan datos de demostración.
 - [ ] **Mínimo de equipos con historial** para dejar de usar el modelo inicial de Kaggle, y revisar que el CSV filtrado permita calcular las 3 variables.

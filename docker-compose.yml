@@ -1,0 +1,23 @@
+# Servicios de desarrollo de NexoLab.
+# Uso: docker compose up -d   (ver README.md)
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: nexolab_db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-nexolab}
+      POSTGRES_USER: ${POSTGRES_USER:-nexolab}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD en el archivo .env}
+    # 5433 en el equipo para no chocar con otro PostgreSQL que use el 5432.
+    ports:
+      - '5433:5432'
+    volumes:
+      - nexolab_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-nexolab} -d ${POSTGRES_DB:-nexolab}']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  nexolab_db_data:

@@ -11,7 +11,10 @@ Antes de cada tarea, consulta las secciones relevantes de `docs/CONTEXTO_DESARRO
   No uses la página 00 ni implementes "Ver como técnico" ni "Simular error de carga".
 
 ## Estado actual
-- Fase 1: base del frontend. El backend se desarrollará después.
+- Interfaz de las páginas 01 a 06 lista con datos de demostración.
+- Backend creado: modelos v4, `seed_demo` y autenticación (fase 3) con pruebas.
+- Login, sesión y cambio de contraseña del frontend ya usan la API real; el resto de `api.ts` sigue en `src/mocks/`.
+- Siguiente: API de administración (fase 4) e incidencias (fase 5). Cómo arrancar todo: `README.md`.
 - Orden acordado: interfaz con datos de demostración → backend → conectar ambos.
 
 ## Stack

@@ -30,9 +30,9 @@ function UserMenu() {
     }
   }, [isOpen])
 
-  function handleLogout() {
+  async function handleLogout() {
     setIsOpen(false)
-    logout()
+    await logout()
     navigate('/login', { replace: true })
   }
 

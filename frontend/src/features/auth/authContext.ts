@@ -3,8 +3,10 @@ import type { SessionUser } from './api'
 
 export type AuthContextValue = {
   user: SessionUser | null
+  // true mientras se consulta al servidor si ya hay una sesión abierta.
+  isLoading: boolean
   login: (email: string, password: string) => Promise<void>
-  logout: () => void
+  logout: () => Promise<void>
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null)
