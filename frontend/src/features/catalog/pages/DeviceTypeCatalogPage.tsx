@@ -55,9 +55,14 @@ function DeviceTypeCatalogPage() {
   function confirmSave() {
     setIsConfirmingSave(false)
     save.mutate([...selection], {
-      onSuccess: () => {
+      // RN-08: el backend recalcula el riesgo al guardar; si el cálculo falla, la selección igual queda guardada.
+      onSuccess: ({ risk_error }) => {
         setDraft(null)
-        showToast({ message: 'Configuración guardada. Recalculando el riesgo de los equipos…', tone: 'info' })
+        showToast(
+          risk_error
+            ? { message: `Configuración guardada. No se pudo recalcular el riesgo: ${risk_error}`, tone: 'error' }
+            : { message: 'Configuración guardada y riesgo de los equipos recalculado' },
+        )
       },
       onError: () => showToast({ message: 'No se pudo guardar la configuración', tone: 'error' }),
     })

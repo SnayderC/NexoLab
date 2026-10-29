@@ -1,4 +1,5 @@
-from django.db.models import Count
+from django.db import transaction
+from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status
@@ -7,15 +8,18 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.incidents.models import Incident
-from apps.risk.models import DeviceRiskResult
+from apps.risk.models import DeviceRiskResult, KmeansRun
 from apps.risk.selectors import centroid_profile, current_results, risk_item
 from apps.risk.serializers import RiskLevelSerializer
+from apps.risk.services import RiskCalculationError, calculate_risk
 from apps.users.permissions import IsAdmin
 
 from .models import Device, DeviceStatus, DeviceType, Laboratory
 from .selectors import device_counts_by_laboratory, laboratories_with_counts, open_incident_count
 from .serializers import (
     DeviceCreateSerializer,
+    DeviceTypeCreateSerializer,
+    DeviceTypeSelectionSerializer,
     DeviceTypeSerializer,
     DeviceUpdateSerializer,
     LaboratoryListSerializer,
@@ -136,11 +140,53 @@ def device_list_item(device, result, incident_count):
     }
 
 
+def device_types_with_counts():
+    return DeviceType.objects.annotate(
+        active_device_count=Count(
+            'devices', filter=Q(devices__is_active=True, devices__device_status__code=DeviceStatus.ACTIVE)
+        )
+    ).order_by('id')
+
+
 class DeviceTypeListView(APIView):
-    """GET device-types: catálogo de tipos (con sesión). Los formularios usan solo los seleccionados (RN-07)."""
+    """GET device-types (con sesión): catálogo con equipos activos por tipo; los formularios usan solo
+    los seleccionados (RN-07) · POST device-types (administrador): agrega un tipo sin seleccionar (RN-09)."""
+
+    def get_permissions(self):
+        return [IsAdmin()] if self.request.method == 'POST' else [IsAuthenticated()]
 
     def get(self, request):
-        return Response(DeviceTypeSerializer(DeviceType.objects.order_by('id'), many=True).data)
+        return Response(DeviceTypeSerializer(device_types_with_counts(), many=True).data)
+
+    def post(self, request):
+        serializer = DeviceTypeCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        device_type = serializer.save()
+        return Response(DeviceTypeSerializer(device_types_with_counts().get(pk=device_type.pk)).data,
+                        status=status.HTTP_201_CREATED)
+
+
+class DeviceTypeSelectionView(APIView):
+    """PUT device-types/selection (administrador): guarda los tipos seleccionados (RN-07) y recalcula
+    el riesgo con el disparador CATALOG_CHANGE (RN-08)."""
+
+    permission_classes = [IsAdmin]
+
+    def put(self, request):
+        serializer = DeviceTypeSelectionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        selected = serializer.validated_data['selected_ids']
+        with transaction.atomic():
+            DeviceType.objects.filter(id__in=selected).update(is_selected=True, updated_at=timezone.now())
+            DeviceType.objects.exclude(id__in=selected).update(is_selected=False, updated_at=timezone.now())
+
+        # La selección queda guardada aunque el cálculo falle; la ejecución fallida queda registrada.
+        risk_error = None
+        try:
+            calculate_risk(KmeansRun.TriggerType.CATALOG_CHANGE, triggered_by=request.user)
+        except RiskCalculationError as error:
+            risk_error = str(error)
+        return Response({'selected_ids': sorted(selected), 'risk_error': risk_error})
 
 
 class DeviceListView(APIView):

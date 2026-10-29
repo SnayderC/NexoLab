@@ -87,9 +87,54 @@ class LaboratoryWriteSerializer(serializers.ModelSerializer):
 
 
 class DeviceTypeSerializer(serializers.ModelSerializer):
+    """Tipo del catálogo (Figma 5.9). active_device_count viene anotado en la consulta."""
+
+    active_device_count = serializers.IntegerField(read_only=True)
+
     class Meta:
         model = DeviceType
-        fields = ['id', 'code', 'name', 'is_selected', 'is_active']
+        fields = ['id', 'code', 'name', 'is_selected', 'is_active', 'active_device_count']
+
+
+# D-37: el código del tipo es parte del código del equipo (RN-11), por eso tiene de 2 a 5 letras.
+TYPE_CODE_PATTERN = re.compile(r'^[A-Z]{2,5}$')
+
+
+class DeviceTypeCreateSerializer(serializers.ModelSerializer):
+    """Agregar un tipo al catálogo (Figma 5.10). RN-09: entra sin seleccionar."""
+
+    class Meta:
+        model = DeviceType
+        fields = ['code', 'name']
+        extra_kwargs = {'code': {'validators': []}}
+
+    def validate_code(self, value):
+        code = value.strip().upper()
+        if not TYPE_CODE_PATTERN.match(code):
+            raise serializers.ValidationError('El código debe tener de 2 a 5 letras, sin números ni espacios')
+        if DeviceType.objects.filter(code__iexact=code).exists():
+            raise serializers.ValidationError(f'Ya existe un tipo con el código {code}')
+        return code
+
+    def validate_name(self, value):
+        return value.strip()
+
+    def create(self, validated_data):
+        return DeviceType.objects.create(is_selected=False, **validated_data)
+
+
+class DeviceTypeSelectionSerializer(serializers.Serializer):
+    """Tipos seleccionados del catálogo (RN-07: al menos uno)."""
+
+    selected_ids = serializers.ListField(child=serializers.IntegerField(), allow_empty=True)
+
+    def validate_selected_ids(self, ids):
+        ids = set(ids)
+        if not ids:
+            raise serializers.ValidationError('Selecciona al menos un tipo de equipo')
+        if DeviceType.objects.filter(id__in=ids, is_active=True).count() != len(ids):
+            raise serializers.ValidationError('Hay tipos que no existen en el catálogo')
+        return ids
 
 
 # RN-11: formato LAB-TIPO-NN, por ejemplo H103-PC-13.

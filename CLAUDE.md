@@ -11,21 +11,20 @@ Antes de cada tarea, consulta las secciones relevantes de `docs/CONTEXTO_DESARRO
   No uses la página 00 ni implementes "Ver como técnico" ni "Simular error de carga".
 
 ## Estado actual
-- Interfaz de las páginas 01 a 06 lista con datos de demostración.
-- Backend creado: modelos v4, `seed_demo` y autenticación (fase 3) con pruebas.
-- Login, sesión y cambio de contraseña del frontend ya usan la API real; el resto de `api.ts` sigue en `src/mocks/`.
-- Siguiente: API de administración (fase 4) e incidencias (fase 5). Cómo arrancar todo: `README.md`.
-- Orden acordado: interfaz con datos de demostración → backend → conectar ambos.
+- Fases 0 a 7 terminadas: todas las pantallas (Figma 01 a 06) usan la API real; `src/mocks/` ya no existe.
+- Backend: autenticación, administración, incidencias y modelo K-Means (con Kaggle), con 84 pruebas.
+- Los datos de demostración se cargan en la base con `python manage.py seed_demo`.
+- Pendiente: fase 8 (Docker Compose completo, documentación final) y lo de la sección 18. Cómo arrancar todo: `README.md`.
 
 ## Stack
 - Frontend (`frontend/`): React 19 + TypeScript + Vite 8 + Tailwind 4 + React Router.
-- Backend (`backend/`, más adelante): Django 5.2 LTS + DRF + PostgreSQL 17.
+- Backend (`backend/`): Django 5.2 LTS + DRF + PostgreSQL 17 + scikit-learn (K-Means).
 
 ## Reglas
 - Código en inglés; textos visibles en español (Ecuador). Rutas de la interfaz en español.
 - Solo tokens de Tailwind definidos en `frontend/src/index.css`. Nunca colores hexadecimales en componentes.
 - Estructura: `src/features/<módulo>/{pages,components,api.ts}`; componentes genéricos en `src/components/ui`; layout en `src/components/layout`.
-- Los datos nunca se escriben dentro de un componente: vienen de `api.ts`, que por ahora lee `src/mocks/`.
+- Los datos nunca se escriben dentro de un componente: vienen de `api.ts`, que llama a la API (`src/lib/apiClient.ts`).
 - Tipos en `src/types/` con nombres en snake_case, iguales a la base de datos.
 - No instales dependencias que no estén en la sección 4 de `docs/CONTEXTO_DESARROLLO.md` sin preguntarme.
 - Nunca pongas credenciales en el código; usa variables de entorno.

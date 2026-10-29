@@ -1,25 +1,12 @@
-import {
-  components,
-  deviceStatuses,
-  deviceTypes,
-  incidentStatuses,
-  resolutionActions,
-  riskLevels,
-} from '../../mocks/catalogs'
-import { DEMO_NOW } from '../../mocks/demoClock'
-import { devices } from '../../mocks/devices'
-import { incidents } from '../../mocks/incidents'
-import { laboratories } from '../../mocks/laboratories'
-import { deviceRiskResults } from '../../mocks/risk'
-import { users } from '../../mocks/users'
-import { toDateInputValue } from '../../lib/formatDate'
+import { ApiError, apiRequest } from '../../lib/apiClient'
 import type { DeviceStatusCode, IncidentStatusCode } from '../../types/catalog'
-import type { Incident, Priority } from '../../types/incident'
-import { getSession } from '../auth/api'
+import type { Priority } from '../../types/incident'
+import { getDeviceHistory, getDeviceIncidents } from '../devices/api'
 import type { DeviceRiskItem } from '../devices/types'
 
-// Por ahora trabaja sobre mocks/ (en memoria: al recargar la página vuelve al estado inicial).
-// En la fase 7 llamará a GET/POST incidents y POST incidents/{id}/close (sección 13).
+// Usa la API real: GET/POST incidents, GET incidents/{número}, POST incidents/{número}/close
+// y GET devices/eligible (sección 13). El backend pone el número (RN-14) y el usuario de la sesión (RN-15),
+// y al cerrar recalcula el riesgo (disparador INCIDENT_CLOSED).
 
 export const PAGE_SIZE = 10
 
@@ -57,7 +44,7 @@ export type IncidentListResult = {
   total: number
   // Cantidad por pestaña (sin los demás filtros).
   counts: Record<IncidentStatusFilter, number>
-  // Referencia para "hace 2 h 15 min".
+  // Hora del servidor: referencia para "hace 2 h 15 min".
   now: string
 }
 
@@ -84,218 +71,70 @@ export type CloseIncidentInput = {
   closed_at: string
 }
 
-const DEMO_DELAY_MS = 400
-const SAVE_DELAY_MS = 600
+// El backend rechazó los datos; el mensaje explica por qué (por ejemplo, RN-13 o RN-21).
+export class IncidentRequestError extends Error {}
 
-const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
-
-const statusId = (code: IncidentStatusCode) => incidentStatuses.find((s) => s.code === code)!.id
-const statusCode = (id: number) => incidentStatuses.find((s) => s.id === id)!.code
-
-function userName(id: number | null): string | null {
-  const user = users.find((u) => u.id === id)
-  return user ? `${user.first_name} ${user.last_name}` : null
+// Primer mensaje de una respuesta de error: { detail } o { campo: ['mensaje'] }.
+function toIncidentError(error: unknown): unknown {
+  if (!(error instanceof ApiError) || (error.status !== 400 && error.status !== 409)) return error
+  if (typeof error.data.detail === 'string') return new IncidentRequestError(error.data.detail)
+  const first = Object.values(error.data).find(Array.isArray)
+  return first ? new IncidentRequestError(String(first[0])) : error
 }
 
-function toListItem(incident: Incident): IncidentListItem {
-  const device = devices.find((d) => d.id === incident.device_id)!
-  return {
-    id: incident.id,
-    incident_number: incident.incident_number,
-    device_code: device.code,
-    laboratory_code: laboratories.find((lab) => lab.id === device.laboratory_id)!.code,
-    component_name: components.find((c) => c.id === incident.component_id)!.name,
-    priority: incident.priority,
-    status: statusCode(incident.incident_status_id),
-    opened_at: incident.opened_at,
-    resolution_time_minutes: incident.resolution_time_minutes,
-    reported_by_name: userName(incident.reported_by_id)!,
-    closed_by_name: userName(incident.closed_by_id),
-    resolution_action_name:
-      resolutionActions.find((action) => action.id === incident.resolution_action_id)?.name ?? null,
+async function send<T>(path: string, body: unknown): Promise<T> {
+  try {
+    return await apiRequest<T>(path, { method: 'POST', body })
+  } catch (error) {
+    throw toIncidentError(error)
   }
 }
 
-function findIncident(incidentNumber: string): Incident {
-  const incident = incidents.find((i) => i.incident_number === incidentNumber && i.is_active)
-  if (!incident) throw new Error(`Incidencia ${incidentNumber} no encontrada`)
-  return incident
+export function listIncidents(filters: IncidentListFilters): Promise<IncidentListResult> {
+  const params = new URLSearchParams({ status: filters.status, page: String(filters.page) })
+  if (filters.search.trim()) params.set('search', filters.search.trim())
+  if (filters.laboratory_id !== null) params.set('laboratory_id', String(filters.laboratory_id))
+  if (filters.priority !== null) params.set('priority', filters.priority)
+  if (filters.from) params.set('from', filters.from)
+  if (filters.to) params.set('to', filters.to)
+  return apiRequest(`/incidents?${params}`)
 }
 
-function requireSessionUserId(): number {
-  // RN-15: quien registra o cierra es siempre el usuario de la sesión, nunca un dato del formulario.
-  const session = getSession()
-  if (!session) throw new Error('Sesión no iniciada')
-  return session.id
-}
-
-export async function listIncidents(filters: IncidentListFilters): Promise<IncidentListResult> {
-  await wait(DEMO_DELAY_MS)
-
-  const valid = incidents.filter((incident) => incident.is_active)
-  const search = filters.search.trim().toLowerCase()
-
-  const filtered = valid
-    .filter((incident) => filters.status === 'ALL' || incident.incident_status_id === statusId(filters.status))
-    .map(toListItem)
-    .filter((item) => {
-      const device = devices.find((d) => d.code === item.device_code)!
-      const openedDate = toDateInputValue(item.opened_at)
-      return (
-        (!search ||
-          item.incident_number.toLowerCase().includes(search) ||
-          item.device_code.toLowerCase().includes(search)) &&
-        (filters.laboratory_id === null || device.laboratory_id === filters.laboratory_id) &&
-        (filters.priority === null || item.priority === filters.priority) &&
-        (filters.from === null || openedDate >= filters.from) &&
-        (filters.to === null || openedDate <= filters.to)
-      )
-    })
-    .sort((a, b) => b.opened_at.localeCompare(a.opened_at))
-
-  const start = (filters.page - 1) * PAGE_SIZE
-
-  return {
-    items: filtered.slice(start, start + PAGE_SIZE),
-    total: filtered.length,
-    counts: {
-      OPEN: valid.filter((i) => i.incident_status_id === statusId('OPEN')).length,
-      CLOSED: valid.filter((i) => i.incident_status_id === statusId('CLOSED')).length,
-      ALL: valid.length,
-    },
-    now: DEMO_NOW,
-  }
-}
-
-export async function getIncident(incidentNumber: string): Promise<IncidentDetail> {
-  await wait(DEMO_DELAY_MS)
-
-  const incident = findIncident(incidentNumber)
-  return {
-    ...toListItem(incident),
-    device_id: incident.device_id,
-    description: incident.description,
-    diagnosis: incident.diagnosis,
-    notes: incident.notes,
-    closed_at: incident.closed_at,
-  }
+export function getIncident(incidentNumber: string): Promise<IncidentDetail> {
+  return apiRequest(`/incidents/${encodeURIComponent(incidentNumber)}`)
 }
 
 // Devuelve el número de la nueva incidencia (RN-14: lo genera el sistema).
 export async function createIncident(input: CreateIncidentInput): Promise<string> {
-  await wait(SAVE_DELAY_MS)
-
-  const id = Math.max(...incidents.map((incident) => incident.id)) + 1
-  const incidentNumber = `INC-2026-${String(id).padStart(4, '0')}`
-
-  incidents.push({
-    id,
-    is_active: true,
-    created_at: DEMO_NOW,
-    updated_at: DEMO_NOW,
-    incident_number: incidentNumber,
-    device_id: input.device_id,
-    component_id: input.component_id,
-    incident_status_id: statusId('OPEN'),
-    resolution_action_id: null,
-    reported_by_id: requireSessionUserId(),
-    closed_by_id: null,
-    priority: input.priority,
-    description: input.description,
-    diagnosis: null,
-    notes: null,
-    opened_at: input.opened_at,
-    closed_at: null,
-    resolution_time_minutes: null,
-  })
-
-  return incidentNumber
+  const incident = await send<IncidentDetail>('/incidents', input)
+  return incident.incident_number
 }
 
-// Cierra la incidencia. Si la acción retira el equipo (RN-19), lo pasa a Retirado
-// y deja de contar en el riesgo. Devuelve el código del equipo retirado, si hubo uno.
+// Cierra la incidencia. Si la acción retira el equipo (RN-19), el backend lo pasa a Retirado
+// en la misma operación. Devuelve el código del equipo retirado, si hubo uno.
 export async function closeIncident(
   incidentNumber: string,
   input: CloseIncidentInput,
 ): Promise<{ retired_device_code: string | null }> {
-  await wait(SAVE_DELAY_MS)
-
-  const incident = findIncident(incidentNumber)
-  const action = resolutionActions.find((a) => a.id === input.resolution_action_id)!
-
-  Object.assign(incident, {
-    incident_status_id: statusId('CLOSED'),
-    resolution_action_id: action.id,
-    closed_by_id: requireSessionUserId(),
-    diagnosis: input.diagnosis,
-    notes: input.notes,
-    closed_at: input.closed_at,
-    // RN-18: closed_at − opened_at, en minutos.
-    resolution_time_minutes: Math.round(
-      (new Date(input.closed_at).getTime() - new Date(incident.opened_at).getTime()) / 60_000,
-    ),
-    updated_at: DEMO_NOW,
-  })
-
-  if (!action.is_retirement_action) return { retired_device_code: null }
-
-  const device = devices.find((d) => d.id === incident.device_id)!
-  device.device_status_id = deviceStatuses.find((s) => s.code === 'RETIRED')!.id
-  device.retired_at = input.closed_at
-  deviceRiskResults
-    .filter((result) => result.device_id === device.id)
-    .forEach((result) => (result.is_current = false))
-
-  return { retired_device_code: device.code }
+  return send(`/incidents/${encodeURIComponent(incidentNumber)}/close`, input)
 }
 
-// Laboratorio y equipo para abrir el formulario de registro con un equipo ya elegido
-// (botón "Registrar incidencia para este equipo"). Vacío si el equipo no admite incidencias.
-export function findRegistrationDevice(code: string): { laboratory_id: number; device_id: number } | null {
-  const device = devices.find((d) => d.code === code)
-  if (!device) return null
-  const isEligible = getRegistrationOptions()
-    .devicesByLaboratory(device.laboratory_id)
-    .some((option) => option.id === device.id)
-  return isEligible ? { laboratory_id: device.laboratory_id, device_id: device.id } : null
+// ---------- Equipos del formulario de registro (RN-13) ----------
+
+export type EligibleDevice = { id: number; code: string; laboratory_id: number; label: string }
+
+// Equipos que admiten incidencias: activos, de un laboratorio activo y de un tipo seleccionado.
+export function listEligibleDevices(laboratoryId: number): Promise<EligibleDevice[]> {
+  return apiRequest(`/devices/eligible?laboratory_id=${laboratoryId}`)
 }
 
-// Opciones del formulario de registro. RN-13: solo equipos activos, de laboratorios activos
-// y de tipos seleccionados en el catálogo.
-export function getRegistrationOptions() {
-  const activeStatusId = deviceStatuses.find((s) => s.code === 'ACTIVE')!.id
-
-  return {
-    laboratories: laboratories.filter((lab) => lab.is_active),
-    components: components.filter((component) => component.is_active),
-    resolutionActions: resolutionActions.filter((action) => action.is_active),
-    devicesByLaboratory(laboratoryId: number) {
-      return devices
-        .filter((device) => {
-          const type = deviceTypes.find((t) => t.id === device.device_type_id)!
-          return (
-            device.laboratory_id === laboratoryId &&
-            device.is_active &&
-            device.device_status_id === activeStatusId &&
-            type.is_selected
-          )
-        })
-        .map((device) => ({
-          id: device.id,
-          label: [
-            device.code,
-            deviceTypes.find((t) => t.id === device.device_type_id)!.name,
-            device.physical_location,
-          ]
-            .filter(Boolean)
-            .join(' · '),
-        }))
-    },
-  }
+// Equipo ya elegido al venir de "Registrar incidencia para este equipo". Vacío si no admite incidencias.
+export async function findRegistrationDevice(code: string): Promise<EligibleDevice | null> {
+  const devices = await apiRequest<EligibleDevice[]>(`/devices/eligible?code=${encodeURIComponent(code)}`)
+  return devices[0] ?? null
 }
 
 // ---------- Panel "Información del equipo" del registro (Figma 3.4 y 3.5) ----------
-// Sigue con mocks/ como el resto de incidencias; pasará a GET devices/{code} al conectar este módulo.
 
 export type RecentIncident = {
   incident_number: string
@@ -305,7 +144,6 @@ export type RecentIncident = {
 }
 
 export type DeviceInfo = {
-  id: number
   code: string
   laboratory_code: string
   physical_location: string | null
@@ -319,49 +157,21 @@ export type DeviceInfo = {
 
 const RECENT_INCIDENT_COUNT = 3
 
-// Riesgo vigente de un equipo, con los datos que muestran las tarjetas.
-function getDeviceRiskItem(deviceId: number): DeviceRiskItem | null {
-  const result = deviceRiskResults.find((r) => r.device_id === deviceId && r.is_current)
-  if (!result) return null
-
-  const device = devices.find((d) => d.id === deviceId)!
+export async function getDeviceInfo(code: string): Promise<DeviceInfo> {
+  const [history, incidents] = await Promise.all([getDeviceHistory(code), getDeviceIncidents(code, 1)])
   return {
-    device_code: device.code,
-    laboratory_code: laboratories.find((lab) => lab.id === device.laboratory_id)!.code,
-    device_type_name: deviceTypes.find((type) => type.id === device.device_type_id)!.name,
-    risk_level: riskLevels.find((level) => level.id === result.risk_level_id)!.code,
-    classification_method: result.classification_method,
-    incident_count: result.incident_count,
-    days_since_last_failure: result.days_since_last_failure,
-    avg_failure_interval_days: result.avg_failure_interval_days,
-  }
-}
-
-export async function getDeviceInfo(deviceId: number): Promise<DeviceInfo> {
-  await new Promise((resolve) => setTimeout(resolve, 300))
-
-  const device = devices.find((d) => d.id === deviceId)
-  if (!device) throw new Error(`Equipo ${deviceId} no encontrado`)
-  const status = deviceStatuses.find((s) => s.id === device.device_status_id)!
-
-  return {
-    id: device.id,
-    code: device.code,
-    laboratory_code: laboratories.find((lab) => lab.id === device.laboratory_id)!.code,
-    physical_location: device.physical_location,
-    specifications: device.specifications,
-    status: status.code,
-    status_name: status.name,
-    risk: getDeviceRiskItem(device.id),
-    recent_incidents: incidents
-      .filter((incident) => incident.device_id === device.id && incident.is_active)
-      .sort((a, b) => b.opened_at.localeCompare(a.opened_at))
-      .slice(0, RECENT_INCIDENT_COUNT)
-      .map((incident) => ({
-        incident_number: incident.incident_number,
-        status: incidentStatuses.find((s) => s.id === incident.incident_status_id)!.code,
-        component_name: components.find((c) => c.id === incident.component_id)!.name,
-        opened_at: incident.opened_at,
-      })),
+    code: history.code,
+    laboratory_code: history.laboratory_code,
+    physical_location: history.physical_location,
+    specifications: history.specifications,
+    status: history.status,
+    status_name: history.status_name,
+    risk: history.current_risk,
+    recent_incidents: incidents.items.slice(0, RECENT_INCIDENT_COUNT).map((incident) => ({
+      incident_number: incident.incident_number,
+      status: incident.status,
+      component_name: incident.component_name,
+      opened_at: incident.opened_at,
+    })),
   }
 }

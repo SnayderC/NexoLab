@@ -193,7 +193,6 @@ nexolab/
         │   ├── users/
         │   └── profile/
         ├── types/                # tipos de TypeScript que reflejan la BD
-        ├── mocks/                # datos de demostración (hasta conectar la API)
         └── lib/                  # cliente de API, formato de fechas, utilidades
 ```
 
@@ -236,7 +235,7 @@ Cada carpeta de `features/` contiene `pages/` (pantallas completas), `components
 - Componentes en `PascalCase` (`RiskBadge.tsx`), hooks con prefijo `use` (`useIncidents`).
 - El JSON de la API usa `snake_case`, igual que la BD. Los tipos de TypeScript respetan esos nombres; no se traducen a `camelCase`.
 - **Ningún color, tamaño o espacio "quemado"** en los componentes: se usan los tokens de la sección 11.
-- **Ningún dato de prueba dentro de un componente.** Los datos vienen de `features/<módulo>/api.ts`, que al principio lee de `mocks/` y después de la API real.
+- **Ningún dato de prueba dentro de un componente.** Los datos vienen de `features/<módulo>/api.ts`, que llama a la API real (`lib/apiClient.ts`). La carpeta `mocks/` se eliminó el 29/10/2026 (D-38).
 - Componentes pequeños. Si un archivo supera unas 200 líneas, probablemente hay que dividirlo.
 
 ### Git
@@ -509,9 +508,9 @@ Los marcados con ✅ ya están programados y probados (detalle en `backend/READM
 
 ## 14. Datos de demostración
 
-El archivo `docs/PROMPT_FIGMA_MAKE_NEXOLAB.md` (parte 3) contiene el conjunto de datos coherente que usa el prototipo. Es la base de `frontend/src/mocks/` y, más adelante, de un comando de Django para cargar datos de demostración.
+El archivo `docs/PROMPT_FIGMA_MAKE_NEXOLAB.md` (parte 3) contiene el conjunto de datos del prototipo. Desde el 29/10/2026 los datos de demostración viven en la base de datos: los carga `python manage.py seed_demo` (usuarios, 5 laboratorios, 145 equipos y 33 incidencias) y al final calcula el riesgo con K-Means. Los indicadores y el riesgo **se calculan** con esos datos, así que no coinciden con los números fijos del Figma (D-31, D-32).
 
-Valores clave que deben cuadrar en todas las pantallas:
+Valores del prototipo (referencia del diseño, no de los datos):
 
 - Usuarios: Andrea Villacís (administradora), Carlos Mendoza (técnico), Luis Bravo (técnico inactivo).
 - 5 laboratorios (H101–H105), **142 equipos activos** y 3 retirados.
@@ -560,17 +559,17 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 - [x] Laboratorios: listar, crear, editar, activar y desactivar (RN-10), con 13 pruebas (`apps/infrastructure/tests.py`).
 - [x] Usuarios: listar con carga de trabajo, crear con contraseña temporal, editar, activar, desactivar (RN-05) y restablecer contraseña (RN-03, RN-04), con 9 pruebas nuevas en `apps/users/tests.py`.
 - [x] Equipos: listar con riesgo y filtros, crear (RN-11, D-21, RN-07), editar y retirar (RN-12, D-20), historial e incidencias del equipo, con 8 pruebas.
-- [ ] Catálogo de tipos, con sus reglas y pruebas.
+- [x] Catálogo de tipos: lista con equipos activos, agregar (RN-09, D-37) y guardar la selección (RN-07, RN-08), con pruebas.
 - [x] Comando `seed_demo` con catálogos, usuarios, laboratorios, equipos y las 33 incidencias de demostración (D-28, D-29). Falta el inventario real (sección 18).
 
 ### Fase 5 — API de incidencias
-- [ ] Registrar, listar con filtros, detalle, cerrar y anular.
-- [ ] Retiro automático, tiempo de atención y numeración, con pruebas.
+- [x] Registrar (RN-13 a RN-16, D-24), listar con filtros, detalle, cerrar (RN-17, RN-21) y anular (RN-22, solo API).
+- [x] Retiro automático (RN-19), tiempo de atención (RN-18) y numeración (RN-14), con 18 pruebas en `apps/incidents/tests.py`.
 
 ### Fase 6 — Modelo K-Means
 - [x] Servicio de cálculo de variables, agrupamiento y asignación de niveles (sección 10, 18 pruebas en `apps/risk/tests.py`).
 - [x] Entrenamiento inicial con Kaggle, disparador `MANUAL` y comando `recalculate_risk`.
-- [ ] Disparadores `INCIDENT_CLOSED` y `CATALOG_CHANGE` (con las API de incidencias y catálogo).
+- [x] Disparadores `INCIDENT_CLOSED` (después de confirmar el cierre, D-06) y `CATALOG_CHANGE`.
 - [x] Endpoint del dashboard e historial de riesgo, con pruebas.
 
 ### Fase 7 — Conectar frontend y backend
@@ -578,8 +577,8 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 - [x] `features/auth/api.ts`: login, sesión, cierre de sesión y cambio de contraseña con la API real.
 - [x] `features/laboratories/api.ts` y `features/users/api.ts` con la API real (D-30). Se borró `userWorkload` de `mocks/users.ts`.
 - [x] `features/dashboard/api.ts` y `features/devices/api.ts` con la API real: el riesgo sale del K-Means (D-36).
-- [ ] Cambiar el resto de `api.ts` de `mocks/` a la API real.
-- [ ] Probar todos los flujos con los dos roles.
+- [x] `features/catalog/api.ts` e `features/incidents/api.ts` con la API real. Se eliminó `src/mocks/` (D-38).
+- [x] Probar los flujos principales con los dos roles en el navegador (29/10/2026).
 
 ### Fase 8 — Cierre
 - [ ] Docker Compose con todos los servicios (por ahora solo la base de datos).
@@ -649,6 +648,8 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 | D-34 | Del dataset de Kaggle se usan solo incidencias (`Category = incident`) de Desktop, Laptop, Thin Client, Monitor, Keyboard y UPS, y los días se miden desde la última fecha del dataset | Son los equipos más parecidos a los del laboratorio; aplicaciones, servidores y redes fallan de otra forma. Medir desde la fecha actual daría más de 10 años para todos |
 | D-35 | El nivel de cada grupo se asigna con el puntaje incidencias − días desde la última falla − intervalo promedio, sobre los centroides estandarizados | Traduce la regla del paso 4 ("más incidencias y fallas más recientes y frecuentes es HIGH") a un cálculo reproducible, con las 3 variables con el mismo peso |
 | D-36 | Dashboard y Equipos usan el riesgo vigente de la base. `GET devices/{code}` incluye el riesgo actual, el perfil del grupo y la evolución mensual (no hay `risk-history` aparte). El retiro se hace con `PATCH devices/{id}` (`status = RETIRED`) y quita el resultado vigente. Un equipo nuevo recibe un resultado LOW por RN-23 en la última ejecución hasta el próximo cálculo. Los "días desde la última falla" son los del momento del cálculo. Las opciones de filtros y formularios vienen de `GET laboratories` y `GET device-types`. El panel "Información del equipo" del registro sigue con `mocks/` hasta conectar Incidencias | Menos rutas y los mismos datos que muestra el Figma. El "Promedio" de cada columna es el centroide del modelo usado: mientras se use el de Kaggle (D-33), muestra el perfil de Kaggle |
+| D-37 | El código de un tipo de equipo tiene de 2 a 5 letras (antes: hasta 10 letras y números) | Es parte del código del equipo (`H103-PC-01`, RN-11). Un tipo como "ABC123" nunca podría usarse para crear equipos |
+| D-38 | Se eliminó `frontend/src/mocks/` y la hora de demostración: todo sale de la API y la hora es la real. Reemplaza a D-16, D-17, D-18 y D-22 y a los límites temporales de D-30 y D-36. Incidencias: la URL usa el número (`incidents/INC-2026-0001`); la numeración usa un candado de PostgreSQL para no repetir números; al cerrar, el riesgo se recalcula después de confirmar (si el modelo falla, el cierre no se deshace y la ejecución queda FAILED); `POST incidents/{número}/void` existe solo en la API (falta su botón, sección 18). El catálogo recalcula el riesgo al guardar la selección | Pedido del 29/10/2026: trabajar solo con datos reales. El número es lo que ve y busca el usuario. Un fallo del modelo no debe impedir registrar el trabajo del técnico |
 
 ---
 

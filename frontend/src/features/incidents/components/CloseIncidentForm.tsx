@@ -9,14 +9,12 @@ import OptionGroup from '../../../components/ui/OptionGroup'
 import Textarea from '../../../components/ui/Textarea'
 import { fromDateTimeInputValue, toDateTimeInputValue } from '../../../lib/formatDate'
 import { formatDuration } from '../../../lib/formatRelative'
-import { DEMO_NOW } from '../../../mocks/demoClock'
-import { getRegistrationOptions, type CloseIncidentInput, type IncidentDetail } from '../api'
+import { useCatalogs } from '../../catalog/useCatalog'
+import type { CloseIncidentInput, IncidentDetail } from '../api'
 
 export const CLOSE_INCIDENT_FORM_ID = 'close-incident-form'
 
 const MAX_TEXT_LENGTH = 500
-const { resolutionActions } = getRegistrationOptions()
-const actionOptions = resolutionActions.map((action) => ({ value: String(action.id), label: action.name }))
 
 // RN-17: diagnóstico de 10 a 500 caracteres, acción obligatoria y cierre entre la falla y ahora.
 function buildSchema(openedAt: string) {
@@ -41,7 +39,7 @@ function buildSchema(openedAt: string) {
           path: ['closed_at'],
           message: 'La fecha de cierre no puede ser anterior a la fecha de la falla',
         })
-      } else if (closedAt > new Date(DEMO_NOW).getTime()) {
+      } else if (closedAt > Date.now()) {
         context.addIssue({ code: 'custom', path: ['closed_at'], message: 'La fecha de cierre no puede ser futura' })
       }
     })
@@ -58,6 +56,8 @@ type CloseIncidentFormProps = {
 // Campos del Figma "3.8 Cerrar / Vacío" a "3.10 Cerrar / Errores de validación".
 function CloseIncidentForm({ incident, closedByName, onSubmit }: CloseIncidentFormProps) {
   const schema = useMemo(() => buildSchema(incident.opened_at), [incident.opened_at])
+  const resolutionActions = (useCatalogs().data?.resolution_actions ?? []).filter((action) => action.is_active)
+  const actionOptions = resolutionActions.map((action) => ({ value: String(action.id), label: action.name }))
   const {
     register,
     control,
@@ -69,7 +69,7 @@ function CloseIncidentForm({ incident, closedByName, onSubmit }: CloseIncidentFo
       diagnosis: '',
       resolution_action_id: '',
       notes: '',
-      closed_at: toDateTimeInputValue(DEMO_NOW),
+      closed_at: toDateTimeInputValue(new Date().toISOString()),
     },
   })
   const [diagnosis, notes, actionId, closedAt] = useWatch({

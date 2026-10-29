@@ -3,7 +3,7 @@ import Modal from '../../../components/ui/Modal'
 import Skeleton from '../../../components/ui/Skeleton'
 import { useToast } from '../../../components/ui/toast/useToast'
 import { useCurrentUser } from '../../auth/useCurrentUser'
-import type { CloseIncidentInput } from '../api'
+import { IncidentRequestError, type CloseIncidentInput } from '../api'
 import { useCloseIncident, useIncident } from '../useIncidents'
 import CloseIncidentForm, { CLOSE_INCIDENT_FORM_ID } from './CloseIncidentForm'
 import IncidentSummary from './IncidentSummary'
@@ -26,11 +26,20 @@ function CloseIncidentModal({ incidentNumber, onClose }: CloseIncidentModalProps
     closeIncident.mutate(
       { incidentNumber, input },
       {
-        onSuccess: () => {
+        // El backend recalcula el riesgo al cerrar (INCIDENT_CLOSED) y, con RN-19, retira el equipo.
+        onSuccess: ({ retired_device_code }) => {
           onClose()
-          showToast({ message: 'Incidencia cerrada. Actualizando el riesgo de los equipos…', tone: 'info' })
+          showToast({
+            message: retired_device_code
+              ? `Incidencia cerrada. El equipo ${retired_device_code} pasó a Retirado`
+              : 'Incidencia cerrada y riesgo de los equipos actualizado',
+          })
         },
-        onError: () => showToast({ message: 'No se pudo cerrar la incidencia', tone: 'error' }),
+        onError: (error) =>
+          showToast({
+            message: error instanceof IncidentRequestError ? error.message : 'No se pudo cerrar la incidencia',
+            tone: 'error',
+          }),
       },
     )
   }

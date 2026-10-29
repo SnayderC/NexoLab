@@ -4,8 +4,7 @@ Carga los datos de demostración (parte 3 de docs/PROMPT_FIGMA_MAKE_NEXOLAB.md).
 Uso:  python manage.py seed_demo            (solo si la base está vacía)
       python manage.py seed_demo --reset    (borra los datos de NexoLab y los vuelve a cargar)
 
-Carga catálogos, usuarios, laboratorios, equipos e incidencias con los mismos ids que usa el
-frontend en src/mocks/, para que las pantallas que aún no se conectan a la API sigan coincidiendo.
+Carga catálogos, usuarios, laboratorios, equipos e incidencias del prototipo de Figma.
 Al final ejecuta la carga inicial del modelo K-Means (INITIAL_LOAD con el dataset de Kaggle), así el
 riesgo de cada equipo sale de las incidencias guardadas.
 La contraseña de los usuarios se lee de DEMO_PASSWORD (backend/.env); nunca está en el código.

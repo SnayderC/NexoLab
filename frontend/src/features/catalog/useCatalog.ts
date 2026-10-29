@@ -1,5 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { addCatalogType, listCatalogTypes, saveCatalogSelection } from './api'
+import { addCatalogType, getCatalogs, listCatalogTypes, saveCatalogSelection } from './api'
+
+// Catálogos pequeños (componentes, acciones, roles...). Cambian muy poco: se guardan en caché.
+export function useCatalogs() {
+  return useQuery({ queryKey: ['catalogs'], queryFn: getCatalogs, staleTime: Infinity })
+}
 
 export function useCatalogTypes() {
   return useQuery({ queryKey: ['catalog'], queryFn: listCatalogTypes })

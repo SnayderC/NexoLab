@@ -1,6 +1,4 @@
 import { ApiError, apiRequest } from '../../lib/apiClient'
-import { roles } from '../../mocks/catalogs'
-import { users } from '../../mocks/users'
 
 // Usa la API real: GET/POST laboratories, PATCH laboratories/{id} y
 // POST laboratories/{id}/activate|deactivate (sección 13).
@@ -103,11 +101,14 @@ export async function setLaboratoryActive(id: number, isActive: boolean): Promis
   }
 }
 
-// Técnicos activos que pueden ser responsables de un laboratorio.
-// Sigue leyendo mocks/ hasta conectar la API de usuarios; los ids coinciden con seed_demo.
-export function getResponsibleOptions() {
-  const technicianRoleId = roles.find((role) => role.code === 'TECHNICIAN')!.id
+export type ResponsibleOption = { id: number; name: string }
+
+type UserRow = { id: number; first_name: string; last_name: string; is_active: boolean; role: { code: string } }
+
+// Técnicos activos que pueden ser responsables de un laboratorio (GET users, solo administrador).
+export async function getResponsibleOptions(): Promise<ResponsibleOption[]> {
+  const users = await apiRequest<UserRow[]>('/users')
   return users
-    .filter((user) => user.role_id === technicianRoleId && user.is_active)
+    .filter((user) => user.role.code === 'TECHNICIAN' && user.is_active)
     .map((user) => ({ id: user.id, name: `${user.first_name} ${user.last_name}` }))
 }

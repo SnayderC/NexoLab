@@ -31,18 +31,9 @@ export class InvalidNewPasswordError extends Error {
   }
 }
 
-// Copia del usuario de la sesión para los módulos que aún usan datos de demostración
-// (por ejemplo, "Registrada por" al registrar una incidencia). La actualizan las funciones de abajo.
-let sessionUser: SessionUser | null = null
-
-export function getSession(): SessionUser | null {
-  return sessionUser
-}
-
 export async function login(email: string, password: string): Promise<SessionUser> {
   try {
-    sessionUser = await apiRequest<SessionUser>('/auth/login', { method: 'POST', body: { email, password } })
-    return sessionUser
+    return await apiRequest<SessionUser>('/auth/login', { method: 'POST', body: { email, password } })
   } catch (error) {
     // RN-01 y RN-02: el backend decide el mensaje; aquí solo se traduce a un código.
     if (error instanceof ApiError && error.data.code === 'account_disabled') throw new AuthError('ACCOUNT_DISABLED')
@@ -52,19 +43,17 @@ export async function login(email: string, password: string): Promise<SessionUse
 }
 
 export async function logout(): Promise<void> {
-  sessionUser = null
   await apiRequest('/auth/logout', { method: 'POST' })
 }
 
 // Sesión abierta en el servidor (sobrevive a recargar la página). null si no hay sesión.
 export async function fetchCurrentUser(): Promise<SessionUser | null> {
   try {
-    sessionUser = await apiRequest<SessionUser>('/auth/me')
+    return await apiRequest<SessionUser>('/auth/me')
   } catch (error) {
     if (!(error instanceof ApiError) || (error.status !== 401 && error.status !== 403)) throw error
-    sessionUser = null
+    return null
   }
-  return sessionUser
 }
 
 export async function changePassword(input: { current_password: string; new_password: string }): Promise<void> {

@@ -1,11 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   createLaboratory,
+  getResponsibleOptions,
   listLaboratories,
   setLaboratoryActive,
   updateLaboratory,
   type LaboratoryInput,
 } from './api'
+
+export function useResponsibleOptions() {
+  return useQuery({ queryKey: ['users', 'technicians'], queryFn: getResponsibleOptions })
+}
 
 export function useLaboratories() {
   return useQuery({ queryKey: ['laboratories'], queryFn: listLaboratories })

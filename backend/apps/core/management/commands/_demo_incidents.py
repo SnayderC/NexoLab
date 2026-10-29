@@ -1,6 +1,6 @@
 """
-Incidencias de demostración para seed_demo: las mismas 33 de frontend/src/mocks/incidents.ts
-(7 abiertas y 26 cerradas, parte 3 de docs/PROMPT_FIGMA_MAKE_NEXOLAB.md y Figma 3.1).
+Incidencias de demostración para seed_demo: 33 (7 abiertas y 26 cerradas), tomadas de la parte 3 de
+docs/PROMPT_FIGMA_MAKE_NEXOLAB.md y del Figma 3.1 y 4.0.
 El guion bajo del nombre evita que Django lo tome como un comando.
 """
 

@@ -16,6 +16,7 @@ urlpatterns = [
         name='laboratory-deactivate',
     ),
     path('device-types', views.DeviceTypeListView.as_view(), name='device-type-list'),
+    path('device-types/selection', views.DeviceTypeSelectionView.as_view(), name='device-type-selection'),
     path('devices', views.DeviceListView.as_view(), name='device-list'),
     path('devices/<int:pk>', views.DeviceDetailView.as_view(), name='device-detail'),
     path('devices/<str:code>', views.DeviceHistoryView.as_view(), name='device-history'),

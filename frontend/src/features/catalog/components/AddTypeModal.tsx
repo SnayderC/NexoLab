@@ -16,8 +16,8 @@ const typeSchema = z.object({
     .string()
     .trim()
     .min(1, 'Ingresa el código')
-    .max(10, 'Máximo 10 caracteres')
-    .regex(/^[A-Za-z0-9]+$/, 'Solo letras y números, sin espacios'),
+    // D-37: el código del tipo forma parte del código del equipo (H103-PC-01).
+    .regex(/^[A-Za-z]{2,5}$/, 'De 2 a 5 letras, sin números ni espacios'),
   name: z.string().trim().min(1, 'Ingresa el nombre').max(80, 'Máximo 80 caracteres'),
 })
 

@@ -9,26 +9,27 @@ import OptionGroup from '../../../components/ui/OptionGroup'
 import Select from '../../../components/ui/Select'
 import Textarea from '../../../components/ui/Textarea'
 import { fromDateTimeInputValue, toDateTimeInputValue } from '../../../lib/formatDate'
-import { DEMO_NOW } from '../../../mocks/demoClock'
+import type { AffectedComponent } from '../../../types/catalog'
 import type { Priority } from '../../../types/incident'
-import { getRegistrationOptions, type CreateIncidentInput } from '../api'
+import { useCatalogs } from '../../catalog/useCatalog'
+import type { LaboratoryOption } from '../../devices/api'
+import { useDeviceOptions } from '../../devices/useDeviceOptions'
+import type { CreateIncidentInput, EligibleDevice } from '../api'
+import { useEligibleDevices } from '../useDeviceInfo'
 
 const MAX_DESCRIPTION_LENGTH = 500
 // Si el componente es "Otro", la descripción debe explicar mejor qué falló (D-24).
 const MIN_OTHER_DESCRIPTION_LENGTH = 20
 
-const options = getRegistrationOptions()
-const laboratoryOptions = options.laboratories.map((lab) => ({ value: String(lab.id), label: lab.code }))
-const componentOptions = options.components.map((c) => ({ value: String(c.id), label: c.name }))
-const otherComponentId = String(options.components.find((c) => c.code === 'OTHER')?.id ?? '')
 const priorityOptions: { value: Priority; label: string }[] = [
   { value: 'HIGH', label: 'Alta' },
   { value: 'MEDIUM', label: 'Media' },
   { value: 'LOW', label: 'Baja' },
 ]
 
-// RN-16: descripción de 10 a 500 caracteres y fecha de la falla no futura.
-const incidentSchema = z
+// RN-16: descripción de 10 a 500 caracteres y fecha de la falla no futura. El backend vuelve a validarlo.
+const buildIncidentSchema = (otherComponentId: string) =>
+  z
   .object({
   laboratory_id: z.string().min(1, 'Selecciona un laboratorio'),
   device_id: z.string().min(1, 'Selecciona un equipo'),
@@ -38,7 +39,7 @@ const incidentSchema = z
     .string()
     .min(1, 'Indica la fecha y hora de la falla')
     .refine(
-      (value) => new Date(fromDateTimeInputValue(value)).getTime() <= new Date(DEMO_NOW).getTime(),
+      (value) => new Date(fromDateTimeInputValue(value)).getTime() <= Date.now(),
       'La fecha no puede ser futura',
     ),
   description: z
@@ -57,27 +58,43 @@ const incidentSchema = z
     },
   )
 
-type IncidentFormValues = z.input<typeof incidentSchema>
+type IncidentFormValues = z.input<ReturnType<typeof buildIncidentSchema>>
 
 type IncidentFormProps = {
   // Equipo ya elegido al venir desde el historial del equipo.
-  initialDevice: { laboratory_id: number; device_id: number } | null
+  initialDevice: EligibleDevice | null
   reportedByName: string
   isSubmitting: boolean
-  onDeviceChange: (deviceId: number | null) => void
+  onDeviceChange: (deviceCode: string | null) => void
   onSubmit: (input: CreateIncidentInput) => void
   onCancel: () => void
 }
 
 // Formulario del Figma "3.4 Registrar / Vacío" a "3.6 Registrar / Errores de validación".
-function IncidentForm({
+// Espera los laboratorios y los componentes de la API antes de armar el formulario.
+function IncidentForm(props: IncidentFormProps) {
+  const { options, isPending } = useDeviceOptions()
+  const catalogs = useCatalogs()
+  if (isPending || !catalogs.data) return null
+  const components = catalogs.data.components.filter((component) => component.is_active)
+  return <RegistrationForm {...props} laboratories={options.laboratories} components={components} />
+}
+
+function RegistrationForm({
   initialDevice,
   reportedByName,
   isSubmitting,
   onDeviceChange,
   onSubmit,
   onCancel,
-}: IncidentFormProps) {
+  laboratories,
+  components,
+}: IncidentFormProps & { laboratories: LaboratoryOption[]; components: AffectedComponent[] }) {
+  const laboratoryOptions = laboratories.map((lab) => ({ value: String(lab.id), label: lab.code }))
+  const componentOptions = components.map((c) => ({ value: String(c.id), label: c.name }))
+  // Si el componente es "Otro", la descripción pide más detalle (D-24).
+  const otherComponentId = String(components.find((c) => c.code === 'OTHER')?.id ?? '')
+  const incidentSchema = useMemo(() => buildIncidentSchema(otherComponentId), [otherComponentId])
   const {
     register,
     control,
@@ -88,22 +105,18 @@ function IncidentForm({
     resolver: zodResolver(incidentSchema),
     defaultValues: {
       laboratory_id: initialDevice ? String(initialDevice.laboratory_id) : '',
-      device_id: initialDevice ? String(initialDevice.device_id) : '',
+      device_id: initialDevice ? String(initialDevice.id) : '',
       component_id: '',
       priority: undefined,
-      opened_at: toDateTimeInputValue(DEMO_NOW),
+      opened_at: toDateTimeInputValue(new Date().toISOString()),
       description: '',
     },
   })
   const [laboratoryId, description] = useWatch({ control, name: ['laboratory_id', 'description'] })
 
-  const deviceOptions = useMemo(
-    () =>
-      laboratoryId
-        ? options.devicesByLaboratory(Number(laboratoryId)).map((d) => ({ value: String(d.id), label: d.label }))
-        : [],
-    [laboratoryId],
-  )
+  // RN-13: solo los equipos del laboratorio que admiten incidencias.
+  const eligibleDevices = useEligibleDevices(laboratoryId ? Number(laboratoryId) : null).data ?? []
+  const deviceOptions = eligibleDevices.map((d) => ({ value: String(d.id), label: d.label }))
 
   function submit(values: IncidentFormValues) {
     onSubmit({
@@ -157,7 +170,7 @@ function IncidentForm({
               value={field.value || null}
               onChange={(value) => {
                 field.onChange(value)
-                onDeviceChange(Number(value))
+                onDeviceChange(eligibleDevices.find((d) => String(d.id) === value)?.code ?? null)
               }}
               placeholder="Selecciona un equipo"
               disabled={!laboratoryId}

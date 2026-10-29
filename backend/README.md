@@ -41,7 +41,7 @@ Además de las 14 tablas del modelo, Django crea sus tablas internas (`django_se
 ```
 
 Carga los catálogos, los 3 usuarios, los 5 laboratorios, los 145 equipos (142 activos y 3 retirados) y
-las 33 incidencias (7 abiertas), con los mismos identificadores que `frontend/src/mocks/`. Al final ejecuta
+las 33 incidencias (7 abiertas) del prototipo. Al final ejecuta
 la carga inicial de K-Means, así el riesgo de cada equipo sale de las incidencias guardadas.
 
 ## Modelo de riesgo (K-Means)
@@ -72,7 +72,16 @@ Base: `/api/v1/`. Autenticación por sesión de Django (cookie `sessionid`, `htt
 | `PATCH users/{id}` | Administrador | 200 · 400. No cambia la contraseña |
 | `POST users/{id}/activate` · `deactivate` | Administrador | 200 · 409 `{code: "self_deactivation"}` si es la propia cuenta |
 | `POST users/{id}/reset-password` | Administrador | 204 · 400 con los mensajes de `new_password` |
-| `GET device-types` | Con sesión | 200 con los tipos y si están seleccionados |
+| `GET catalogs` | Con sesión | 200 con roles, estados, componentes, acciones de cierre y niveles de riesgo |
+| `GET device-types` | Con sesión | 200 con los tipos, si están seleccionados y sus equipos activos |
+| `POST device-types` | Administrador | 201 sin seleccionar (RN-09) · 400 código de 2 a 5 letras (D-37) o duplicado |
+| `PUT device-types/selection` | Administrador | 200 `{selected_ids, risk_error}`; recalcula el riesgo (`CATALOG_CHANGE`) · 400 sin tipos (RN-07) |
+| `GET incidents` | Con sesión | 200 `{items, total, counts, now}`; filtros `status`, `search`, `laboratory_id`, `priority`, `from`, `to`, `page` |
+| `POST incidents` | Con sesión | 201 con la incidencia y su número (RN-14) · 400 (RN-13, RN-16, D-24) |
+| `GET incidents/{número}` | Con sesión | 200 · 404 (las anuladas no se muestran) |
+| `POST incidents/{número}/close` | Con sesión | 200 con `retired_device_code` (RN-19) · 400 (RN-17) · 409 ya cerrada (RN-21). Recalcula el riesgo (`INCIDENT_CLOSED`) |
+| `POST incidents/{número}/void` | Administrador | 204 (RN-22). Aún sin botón en la interfaz |
+| `GET devices/eligible` | Con sesión | 200 con los equipos que admiten incidencias (RN-13), por `laboratory_id` o `code` |
 | `GET devices` | Con sesión | 200 `{items, total}` con riesgo vigente; filtros `search`, `laboratory_id`, `device_type_id`, `status`, `risk_level` y `page` (10 por página) |
 | `POST devices` | Administrador | 201 · 400 (formato RN-11, prefijo D-21, duplicado, laboratorio inactivo, tipo no seleccionado) |
 | `PATCH devices/{id}` | Administrador | 200 · 400. Ubicación, especificaciones y `status = RETIRED` (RN-12); un retirado no vuelve a activo |
@@ -107,6 +116,12 @@ Toda petición que no sea `GET` debe enviar la cabecera `X-CSRFToken` con el val
   técnico activo (se puede conservar el actual aunque ya no lo sea).
 - **RN-10:** no se desactiva un laboratorio con incidencias abiertas, ni con el botón ni desde el formulario (409).
   Las incidencias anuladas (`is_active = false`) no cuentan.
+- **Incidencias (RN-13 a RN-22):** solo en equipos que admiten incidencias; número `INC-AAAA-NNNN` correlativo por
+  año (con un candado de PostgreSQL para no repetirlo); quien registra y cierra es siempre el usuario de la sesión;
+  descripción y diagnóstico de 10 a 500 caracteres (20 con el componente "Otro"); fechas no futuras y cierre no
+  anterior a la falla; tiempo de atención calculado por el backend; "Requiere reemplazo" retira el equipo en la misma
+  transacción; una cerrada no se modifica. Al confirmar el cierre se recalcula el riesgo; si el modelo falla, el
+  cierre se mantiene y la ejecución queda como FAILED.
 
 ## Pruebas
 
@@ -118,3 +133,4 @@ Toda petición que no sea `GET` debe enviar la cabecera `X-CSRFToken` con el val
   y administración de usuarios.
 - `apps/infrastructure/tests.py` (21): laboratorios (RN-10) y equipos (RN-07, RN-11, RN-12, D-21), con RN-06.
 - `apps/risk/tests.py` (20): variables, algoritmo, RN-23, carga inicial con Kaggle, reuso del modelo, recálculo y dashboard.
+- `apps/incidents/tests.py` (18): registrar, listar, cerrar, retiro, numeración, recálculo al cerrar, anular y catálogo de tipos.

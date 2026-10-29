@@ -8,14 +8,14 @@ import DetailField from './DetailField'
 import IncidentStatusBadge from './IncidentStatusBadge'
 
 // Panel derecho de "Registrar incidencia" (Figma 3.4 y 3.5).
-function DeviceInfoPanel({ deviceId }: { deviceId: number | null }) {
-  const { data: device, isPending } = useDeviceInfo(deviceId)
+function DeviceInfoPanel({ deviceCode }: { deviceCode: string | null }) {
+  const { data: device, isPending } = useDeviceInfo(deviceCode)
 
   return (
     <aside className="flex w-95 shrink-0 flex-col gap-5 self-start rounded-lg border border-border-subtle bg-surface p-5">
       <h2 className="text-base font-semibold">Información del equipo</h2>
 
-      {deviceId === null ? (
+      {deviceCode === null ? (
         <div className="flex flex-col items-center gap-4 py-14 text-center">
           <Monitor className="size-7 text-text-muted" aria-hidden />
           <p className="text-text-muted">Selecciona un equipo para ver su información</p>

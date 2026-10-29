@@ -14,10 +14,8 @@ npm run build    # verificación de tipos y build de producción en dist/
 ## Cómo se obtienen los datos
 
 - Cada módulo de `src/features/<módulo>/` pide sus datos solo a través de su `api.ts`.
-- **Con la API real** de Django (mediante `src/lib/apiClient.ts`): autenticación, dashboard, equipos
-  (lista, historial y administración), laboratorios y usuarios.
-- **Resto de módulos:** todavía leen `src/mocks/` (datos de demostración). Se cambiarán a la API real
-  cuando el backend tenga esos endpoints (fase 7).
+- Todos los módulos usan la API real de Django mediante `src/lib/apiClient.ts`. No hay datos escritos en el
+  frontend: los de demostración se cargan en la base con `seed_demo` (ver el README del backend).
 
 En desarrollo, Vite reenvía `/api` a `http://localhost:8000` (`vite.config.ts`). Así la aplicación y la API
 comparten el mismo origen y la cookie de sesión funciona sin configurar CORS (decisión D-25).

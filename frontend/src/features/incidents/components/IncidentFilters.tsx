@@ -2,7 +2,8 @@ import Input from '../../../components/ui/Input'
 import SearchInput from '../../../components/ui/SearchInput'
 import Select, { type SelectOption } from '../../../components/ui/Select'
 import type { Priority } from '../../../types/incident'
-import { getRegistrationOptions, type IncidentListFilters } from '../api'
+import { useDeviceOptions } from '../../devices/useDeviceOptions'
+import type { IncidentListFilters } from '../api'
 
 type FilterValues = Pick<IncidentListFilters, 'search' | 'laboratory_id' | 'priority' | 'from' | 'to'>
 
@@ -13,11 +14,6 @@ type IncidentFiltersProps = {
 
 const ALL = 'all'
 
-const laboratoryOptions: SelectOption[] = [
-  { value: ALL, label: 'Todos' },
-  ...getRegistrationOptions().laboratories.map((lab) => ({ value: String(lab.id), label: lab.code })),
-]
-
 const priorityOptions: SelectOption[] = [
   { value: ALL, label: 'Todas' },
   { value: 'HIGH', label: 'Alta' },
@@ -27,6 +23,12 @@ const priorityOptions: SelectOption[] = [
 
 // Barra de filtros del Figma 3.0: búsqueda, laboratorio, prioridad y rango de fechas de la falla.
 function IncidentFilters({ filters, onChange }: IncidentFiltersProps) {
+  const { options } = useDeviceOptions()
+  const laboratoryOptions: SelectOption[] = [
+    { value: ALL, label: 'Todos' },
+    ...options.laboratories.map((lab) => ({ value: String(lab.id), label: lab.code })),
+  ]
+
   return (
     <div className="flex gap-3">
       <SearchInput

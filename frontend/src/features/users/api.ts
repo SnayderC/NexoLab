@@ -1,5 +1,4 @@
 import { ApiError, apiRequest } from '../../lib/apiClient'
-import { roles } from '../../mocks/catalogs'
 import type { Role, RoleCode } from '../../types/catalog'
 
 // Usa la API real: GET/POST users, PATCH users/{id}, POST users/{id}/activate|deactivate
@@ -95,9 +94,4 @@ export function setUserActive(id: number, isActive: boolean): Promise<void> {
 // RN-03: el administrador restablece la contraseña.
 export function resetUserPassword(input: { id: number; new_password: string }): Promise<void> {
   return request(`/users/${input.id}/reset-password`, 'POST', { new_password: input.new_password })
-}
-
-// Sigue leyendo mocks/ hasta conectar los catálogos; los ids coinciden con seed_demo.
-export function getRoleOptions() {
-  return roles.map((role) => ({ value: String(role.id), label: role.name }))
 }

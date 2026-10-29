@@ -10,22 +10,15 @@ import Switch from '../../../components/ui/Switch'
 import { useToast } from '../../../components/ui/toast/useToast'
 import {
   DuplicateLaboratoryCodeError,
-  getResponsibleOptions,
   LaboratoryHasOpenIncidentsError,
   type LaboratoryListItem,
+  type ResponsibleOption,
 } from '../api'
-import { useSaveLaboratory } from '../useLaboratories'
+import { useResponsibleOptions, useSaveLaboratory } from '../useLaboratories'
 
 const FORM_ID = 'laboratory-form'
 const NO_RESPONSIBLE = 'none'
 
-const technicians = getResponsibleOptions()
-const responsibleOptions = [
-  { value: NO_RESPONSIBLE, label: 'Sin responsable' },
-  ...technicians.map((tech) => ({ value: String(tech.id), label: tech.name })),
-]
-// Un laboratorio nuevo propone al primer técnico disponible (Figma 5.1).
-const defaultResponsible = technicians[0] ? String(technicians[0].id) : NO_RESPONSIBLE
 
 const laboratorySchema = z.object({
   code: z.string().trim().min(1, 'Ingresa el código').max(10, 'Máximo 10 caracteres'),
@@ -50,7 +43,24 @@ type LaboratoryFormModalProps = {
 }
 
 // Modal del Figma "5.1 Nuevo laboratorio" y "5.2 Código duplicado". Sirve también para editar.
-function LaboratoryFormModal({ open, laboratory, onClose }: LaboratoryFormModalProps) {
+// Espera la lista de técnicos de la API antes de armar el formulario.
+function LaboratoryFormModal(props: LaboratoryFormModalProps) {
+  const technicians = useResponsibleOptions().data
+  return technicians ? <LaboratoryForm {...props} technicians={technicians} /> : null
+}
+
+function LaboratoryForm({
+  open,
+  laboratory,
+  onClose,
+  technicians,
+}: LaboratoryFormModalProps & { technicians: ResponsibleOption[] }) {
+  const responsibleOptions = [
+    { value: NO_RESPONSIBLE, label: 'Sin responsable' },
+    ...technicians.map((tech) => ({ value: String(tech.id), label: tech.name })),
+  ]
+  // Un laboratorio nuevo propone al primer técnico disponible (Figma 5.1).
+  const defaultResponsible = technicians[0] ? String(technicians[0].id) : NO_RESPONSIBLE
   const { showToast } = useToast()
   const save = useSaveLaboratory()
   const {

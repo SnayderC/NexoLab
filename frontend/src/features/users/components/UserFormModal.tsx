@@ -8,14 +8,13 @@ import Modal from '../../../components/ui/Modal'
 import PasswordInput from '../../../components/ui/PasswordInput'
 import Select from '../../../components/ui/Select'
 import { useToast } from '../../../components/ui/toast/useToast'
-import { DuplicateEmailError, getRoleOptions, InvalidUserPasswordError, type UserListItem } from '../api'
+import type { Role } from '../../../types/catalog'
+import { useCatalogs } from '../../catalog/useCatalog'
+import { DuplicateEmailError, InvalidUserPasswordError, type UserListItem } from '../api'
 import { newPasswordSchema } from '../passwordSchema'
 import { useSaveUser } from '../useUsers'
 
 const FORM_ID = 'user-form'
-const roleOptions = getRoleOptions()
-// Un usuario nuevo es técnico por defecto (Figma 5.16).
-const defaultRole = roleOptions.find((r) => r.label === 'Técnico de soporte')?.value ?? ''
 
 function buildSchema(isNew: boolean) {
   return z.object({
@@ -30,7 +29,16 @@ function buildSchema(isNew: boolean) {
 type UserFormValues = z.infer<ReturnType<typeof buildSchema>>
 
 // Figma 5.16 "Nuevo usuario" y 5.17 "Correo duplicado". Sirve también para editar (sin contraseña).
-function UserFormModal({ user, onClose }: { user: UserListItem | null; onClose: () => void }) {
+// Espera los roles de la API antes de armar el formulario.
+function UserFormModal(props: { user: UserListItem | null; onClose: () => void }) {
+  const roles = useCatalogs().data?.roles
+  return roles ? <UserForm {...props} roles={roles.filter((role) => role.is_active)} /> : null
+}
+
+function UserForm({ user, onClose, roles }: { user: UserListItem | null; onClose: () => void; roles: Role[] }) {
+  const roleOptions = roles.map((role) => ({ value: String(role.id), label: role.name }))
+  // Un usuario nuevo es técnico por defecto (Figma 5.16).
+  const defaultRole = String(roles.find((role) => role.code === 'TECHNICIAN')?.id ?? '')
   const { showToast } = useToast()
   const save = useSaveUser()
   const isNew = user === null
