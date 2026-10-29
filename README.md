@@ -66,7 +66,8 @@ Los crea `seed_demo`. Todos usan la contraseña definida en `DEMO_PASSWORD` (`ba
 | Interfaz de las 6 páginas del Figma | Lista, con datos de demostración |
 | Base de datos (14 tablas del modelo v4) | Lista, con migraciones |
 | Inicio de sesión, sesión, cierre de sesión y cambio de contraseña | Conectados a la API real |
-| Laboratorios, equipos, catálogo, usuarios, incidencias y riesgo | Interfaz con datos de demostración; API pendiente |
+| Administración de laboratorios (RN-10 incluida) | Conectada a la API real |
+| Equipos, catálogo, usuarios, incidencias y riesgo | Interfaz con datos de demostración; API pendiente |
 | Modelo K-Means | Pendiente |
 
 El detalle de cada fase está en la sección 15 de `docs/CONTEXTO_DESARROLLO.md`.

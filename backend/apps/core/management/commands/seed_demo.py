@@ -4,21 +4,25 @@ Carga los datos de demostración (parte 3 de docs/PROMPT_FIGMA_MAKE_NEXOLAB.md).
 Uso:  python manage.py seed_demo            (solo si la base está vacía)
       python manage.py seed_demo --reset    (borra los datos de NexoLab y los vuelve a cargar)
 
-Carga catálogos, usuarios, laboratorios y equipos con los mismos ids que usa el frontend
-en src/mocks/, para que las pantallas que aún no se conectan a la API sigan coincidiendo.
-Las incidencias y los resultados de riesgo se cargarán cuando se conecten esas pantallas.
+Carga catálogos, usuarios, laboratorios, equipos e incidencias con los mismos ids que usa el
+frontend en src/mocks/, para que las pantallas que aún no se conectan a la API sigan coincidiendo.
+Los resultados de riesgo se cargarán con el modelo K-Means (fase 6).
 La contraseña de los usuarios se lee de DEMO_PASSWORD (backend/.env); nunca está en el código.
 """
 
 import environ
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connection, transaction
+from django.db.models import F
+from django.db.models.functions import Coalesce
 from django.utils.dateparse import parse_datetime
 
 from apps.incidents.models import Component, Incident, IncidentStatus, ResolutionAction
 from apps.infrastructure.models import Device, DeviceStatus, DeviceType, Laboratory
 from apps.risk.models import DeviceRiskResult, KmeansCentroid, KmeansRun, RiskLevel
 from apps.users.models import Role, User
+
+from ._demo_incidents import INCIDENTS
 
 ROLES = [(1, 'TECHNICIAN', 'Técnico de soporte'), (2, 'ADMIN', 'Administrador')]
 
@@ -102,7 +106,7 @@ def physical_location(type_code: str, number: int) -> str:
 
 
 class Command(BaseCommand):
-    help = 'Carga los datos de demostración de NexoLab (catálogos, usuarios, laboratorios y equipos).'
+    help = 'Carga los datos de demostración de NexoLab (catálogos, usuarios, laboratorios, equipos e incidencias).'
 
     def add_arguments(self, parser):
         parser.add_argument('--reset', action='store_true', help='Borra los datos de NexoLab antes de cargar.')
@@ -123,7 +127,8 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS(
             f'Datos cargados: {User.objects.count()} usuarios, {Laboratory.objects.count()} laboratorios, '
-            f'{Device.objects.count()} equipos ({Device.objects.filter(retired_at__isnull=True).count()} activos).'
+            f'{Device.objects.count()} equipos ({Device.objects.filter(retired_at__isnull=True).count()} activos), '
+            f'{Incident.objects.count()} incidencias ({Incident.objects.filter(closed_at__isnull=True).count()} abiertas).'
         ))
 
     def _reset(self):
@@ -183,11 +188,39 @@ class Command(BaseCommand):
                         retired_at=parse_datetime(retired_at) if retired_at else None,
                     ))
         Device.objects.bulk_create(devices)
+        self._seed_incidents()
+
+    def _seed_incidents(self):
+        device_ids = dict(Device.objects.values_list('code', 'id'))
+        component_ids = dict(Component.objects.values_list('code', 'id'))
+        action_ids = dict(ResolutionAction.objects.values_list('code', 'id'))
+        Incident.objects.bulk_create([
+            Incident(
+                id=data['id'],
+                incident_number=f"INC-2026-{data['id']:04d}",
+                device_id=device_ids[data['device']],
+                component_id=component_ids[data['component']],
+                incident_status_id=2 if closing else 1,
+                resolution_action_id=action_ids[closing['action']] if closing else None,
+                reported_by_id=data['reported_by'],
+                closed_by_id=closing['closed_by'] if closing else None,
+                priority=data['priority'],
+                description=data['description'],
+                diagnosis=closing['diagnosis'] if closing else None,
+                opened_at=parse_datetime(data['opened_at']),
+                closed_at=closing['closed_at'] if closing else None,
+                resolution_time_minutes=closing['minutes'] if closing else None,
+            )
+            for data in INCIDENTS
+            for closing in [data['closing']]
+        ])
+        # Las fechas de control siguen a las de la incidencia, no a la hora en que se cargó.
+        Incident.objects.update(created_at=F('opened_at'), updated_at=Coalesce(F('closed_at'), F('opened_at')))
 
     def _reset_sequences(self):
         # Los ids se dieron a mano: la secuencia de cada tabla debe continuar desde el mayor.
         models = [Role, DeviceType, DeviceStatus, Component, IncidentStatus, ResolutionAction, RiskLevel,
-                  User, Laboratory, Device]
+                  User, Laboratory, Device, Incident]
         with connection.cursor() as cursor:
             for sql in connection.ops.sequence_reset_sql(self.style, models):
                 cursor.execute(sql)

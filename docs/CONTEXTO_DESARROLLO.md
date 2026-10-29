@@ -466,7 +466,7 @@ Base: `/api/v1/`. JSON en `snake_case`. Todos los endpoints requieren autenticac
 | `GET devices` · `GET devices/{code}` | Lista y detalle |
 | `GET devices/{code}/incidents` · `GET devices/{code}/risk-history` | Historial |
 | `POST devices` 🔒 · `PATCH devices/{code}` 🔒 · `POST devices/{code}/retire` 🔒 | Gestión |
-| `GET laboratories` · `POST` 🔒 · `PATCH laboratories/{id}` 🔒 · `POST laboratories/{id}/deactivate` 🔒 | Laboratorios |
+| `GET laboratories` · `POST` 🔒 · `PATCH laboratories/{id}` 🔒 · `POST laboratories/{id}/activate` 🔒 · `POST laboratories/{id}/deactivate` 🔒 | Laboratorios ✅ |
 | `GET device-types` 🔒 · `POST device-types` 🔒 · `PUT device-types/selection` 🔒 | Catálogo |
 | `GET users` 🔒 · `POST users` 🔒 · `PATCH users/{id}` 🔒 | Usuarios |
 | `POST users/{id}/reset-password` 🔒 · `POST users/{id}/activate` 🔒 · `POST users/{id}/deactivate` 🔒 | Usuarios |
@@ -528,8 +528,9 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 - [x] Permisos por rol (técnico y administrador) con pruebas (16 pruebas en `apps/users/tests.py`).
 
 ### Fase 4 — API de administración
-- [ ] Laboratorios, equipos, catálogo y usuarios, con sus reglas y pruebas. (`GET users` ya existe para probar el permiso de administrador.)
-- [x] Comando `seed_demo` con catálogos, usuarios, laboratorios y equipos de demostración (D-28). Falta el inventario real (sección 18).
+- [x] Laboratorios: listar, crear, editar, activar y desactivar (RN-10), con 13 pruebas (`apps/infrastructure/tests.py`).
+- [ ] Equipos, catálogo y usuarios, con sus reglas y pruebas. (`GET users` ya existe para probar el permiso de administrador.)
+- [x] Comando `seed_demo` con catálogos, usuarios, laboratorios, equipos y las 33 incidencias de demostración (D-28, D-29). Falta el inventario real (sección 18).
 
 ### Fase 5 — API de incidencias
 - [ ] Registrar, listar con filtros, detalle, cerrar y anular.
@@ -543,12 +544,13 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 ### Fase 7 — Conectar frontend y backend
 - [x] Cliente de API (`lib/apiClient.ts`) y proxy de Vite (D-25).
 - [x] `features/auth/api.ts`: login, sesión, cierre de sesión y cambio de contraseña con la API real.
+- [x] `features/laboratories/api.ts` con la API real (D-30).
 - [ ] Cambiar el resto de `api.ts` de `mocks/` a la API real.
 - [ ] Probar todos los flujos con los dos roles.
 
 ### Fase 8 — Cierre
 - [ ] Docker Compose con todos los servicios (por ahora solo la base de datos).
-- [ ] Comando de datos de demostración completo (faltan incidencias y resultados de K-Means).
+- [ ] Comando de datos de demostración completo (faltan los resultados de K-Means).
 - [ ] Documentación final y guion de la demostración.
 
 ---
@@ -606,6 +608,8 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 | D-26 | La restricción única de `hst_kmeans_centroids` se llama `uq_hst_kmc_run_cluster` en lugar del nombre del DBML | Django limita los nombres de restricciones a 30 caracteres y el del DBML tiene 35. Las columnas y la regla son las mismas. **Pendiente:** actualizar el nombre en el DBML con aprobación |
 | D-27 | El backend se desarrolla con Python 3.14 | Es la versión instalada en el equipo de desarrollo y Django 5.2.18 la soporta (desde 5.2.8). El código no usa nada exclusivo de 3.14, así que 3.12 sigue funcionando |
 | D-28 | Comando `seed_demo` (`apps/core`) con la contraseña de `DEMO_PASSWORD` y los mismos identificadores que `frontend/src/mocks/`. Por ahora carga catálogos, usuarios, laboratorios y equipos; las incidencias y el riesgo se cargan en las fases 5 y 6 | Ninguna credencial en el código. Mismos identificadores para que las pantallas que aún usan datos de demostración coincidan con la API |
+| D-29 | `seed_demo` carga desde ya las 33 incidencias de demostración (`apps/core/management/commands/_demo_incidents.py`), adelantándose a la fase 5. Sus `created_at` y `updated_at` siguen a `opened_at` y `closed_at` | Sin ellas, la pantalla de laboratorios (API real) mostraría 0 incidencias abiertas mientras el resto (datos de demostración) muestra 7, y no se podría demostrar RN-10 |
+| D-30 | Conexión por módulos: cada `api.ts` pasa a la API real cuando su backend está listo, sin cambiar las pantallas. `GET laboratories` devuelve la composición como lista (`device_counts`) y el frontend arma el texto "PC 10 · Monitor 10". Mientras tanto, los responsables del formulario de laboratorio se leen de `mocks/users` (los ids coinciden con `seed_demo`) | Cambios pequeños y probados uno a uno. **Límite temporal:** un laboratorio creado con la API todavía no aparece en las pantallas que siguen con datos de demostración (equipos, incidencias, dashboard) hasta conectarlas |
 
 ---
 

@@ -1,13 +1,9 @@
-import { deviceStatuses, deviceTypes, incidentStatuses, roles } from '../../mocks/catalogs'
-import { DEMO_NOW } from '../../mocks/demoClock'
-import { devices } from '../../mocks/devices'
-import { incidents } from '../../mocks/incidents'
-import { laboratories } from '../../mocks/laboratories'
+import { ApiError, apiRequest } from '../../lib/apiClient'
+import { roles } from '../../mocks/catalogs'
 import { users } from '../../mocks/users'
 
-// Por ahora trabaja sobre mocks/ (en memoria: al recargar la página vuelve al estado inicial).
-// En la fase 7 llamará a GET/POST laboratories, PATCH laboratories/{id} y
-// POST laboratories/{id}/deactivate (sección 13).
+// Usa la API real: GET/POST laboratories, PATCH laboratories/{id} y
+// POST laboratories/{id}/activate|deactivate (sección 13).
 
 export type LaboratoryListItem = {
   id: number
@@ -51,106 +47,64 @@ export class LaboratoryHasOpenIncidentsError extends Error {
   }
 }
 
-const DEMO_DELAY_MS = 400
-const SAVE_DELAY_MS = 600
-
-const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+type DeviceCount = { device_type_id: number; code: string; name: string; count: number }
+type LaboratoryResponse = Omit<LaboratoryListItem, 'device_breakdown'> & { device_counts: DeviceCount[] }
 
 // En la composición, "PC de escritorio" se muestra como "PC" (Figma 5.0).
-const shortTypeName = (typeId: number) => {
-  const type = deviceTypes.find((t) => t.id === typeId)!
-  return type.code === 'PC' ? 'PC' : type.name
-}
-
-function openIncidentCount(laboratoryId: number): number {
-  const openStatusId = incidentStatuses.find((s) => s.code === 'OPEN')!.id
-  return incidents.filter((incident) => {
-    const device = devices.find((d) => d.id === incident.device_id)!
-    return incident.is_active && incident.incident_status_id === openStatusId && device.laboratory_id === laboratoryId
-  }).length
-}
-
-function toListItem(laboratory: (typeof laboratories)[number]): LaboratoryListItem {
-  const activeStatusId = deviceStatuses.find((s) => s.code === 'ACTIVE')!.id
-  const activeDevices = devices.filter(
-    (d) => d.laboratory_id === laboratory.id && d.is_active && d.device_status_id === activeStatusId,
-  )
-  // Cantidad por tipo, en el orden del catálogo.
-  const countByType = new Map<number, number>()
-  activeDevices
-    .sort((a, b) => a.device_type_id - b.device_type_id)
-    .forEach((d) => countByType.set(d.device_type_id, (countByType.get(d.device_type_id) ?? 0) + 1))
-  const responsible = users.find((u) => u.id === laboratory.responsible_technician_id)
-
+function toListItem({ device_counts, ...laboratory }: LaboratoryResponse): LaboratoryListItem {
   return {
-    id: laboratory.id,
-    code: laboratory.code,
-    name: laboratory.name,
-    location: laboratory.location,
-    station_count: laboratory.station_count,
-    responsible_technician_id: laboratory.responsible_technician_id,
-    responsible_name: responsible ? `${responsible.first_name} ${responsible.last_name}` : null,
-    active_device_count: activeDevices.length,
-    device_breakdown: [...countByType.entries()]
-      .map(([typeId, count]) => `${shortTypeName(typeId)} ${count}`)
+    ...laboratory,
+    device_breakdown: device_counts
+      .map((type) => `${type.code === 'PC' ? 'PC' : type.name} ${type.count}`)
       .join(' · '),
-    open_incident_count: openIncidentCount(laboratory.id),
-    is_active: laboratory.is_active,
   }
 }
 
-function assertUniqueCode(code: string, exceptId: number | null) {
-  const normalized = code.trim().toUpperCase()
-  if (laboratories.some((lab) => lab.code.toUpperCase() === normalized && lab.id !== exceptId)) {
-    throw new DuplicateLaboratoryCodeError(normalized)
+// Convierte las respuestas de reglas de negocio en errores que entiende el formulario.
+function toLaboratoryError(error: unknown, code: string): unknown {
+  if (error instanceof ApiError) {
+    if (error.status === 400 && Array.isArray(error.data.code)) {
+      return new DuplicateLaboratoryCodeError(code.trim().toUpperCase())
+    }
+    if (error.status === 409 && error.data.code === 'has_open_incidents') {
+      return new LaboratoryHasOpenIncidentsError(Number(error.data.open_incident_count))
+    }
   }
+  return error
 }
 
 export async function listLaboratories(): Promise<LaboratoryListItem[]> {
-  await wait(DEMO_DELAY_MS)
+  const laboratories = await apiRequest<LaboratoryResponse[]>('/laboratories')
   return laboratories.map(toListItem)
 }
 
 export async function createLaboratory(input: LaboratoryInput): Promise<void> {
-  await wait(SAVE_DELAY_MS)
-  assertUniqueCode(input.code, null)
-
-  laboratories.push({
-    id: Math.max(...laboratories.map((lab) => lab.id)) + 1,
-    created_at: DEMO_NOW,
-    updated_at: DEMO_NOW,
-    ...input,
-    code: input.code.trim().toUpperCase(),
-  })
+  try {
+    await apiRequest('/laboratories', { method: 'POST', body: input })
+  } catch (error) {
+    throw toLaboratoryError(error, input.code)
+  }
 }
 
 export async function updateLaboratory(id: number, input: LaboratoryInput): Promise<void> {
-  await wait(SAVE_DELAY_MS)
-  assertUniqueCode(input.code, id)
-
-  const laboratory = laboratories.find((lab) => lab.id === id)!
-  // RN-10: tampoco se desactiva desde el formulario si tiene incidencias abiertas.
-  if (laboratory.is_active && !input.is_active) {
-    const count = openIncidentCount(id)
-    if (count > 0) throw new LaboratoryHasOpenIncidentsError(count)
+  try {
+    await apiRequest(`/laboratories/${id}`, { method: 'PATCH', body: input })
+  } catch (error) {
+    throw toLaboratoryError(error, input.code)
   }
-  Object.assign(laboratory, { ...input, code: input.code.trim().toUpperCase(), updated_at: DEMO_NOW })
 }
 
-// RN-10: no se puede desactivar un laboratorio con incidencias abiertas.
+// RN-10: el backend no desactiva un laboratorio con incidencias abiertas (409).
 export async function setLaboratoryActive(id: number, isActive: boolean): Promise<void> {
-  await wait(SAVE_DELAY_MS)
-
-  const laboratory = laboratories.find((lab) => lab.id === id)!
-  if (!isActive) {
-    const count = openIncidentCount(id)
-    if (count > 0) throw new LaboratoryHasOpenIncidentsError(count)
+  try {
+    await apiRequest(`/laboratories/${id}/${isActive ? 'activate' : 'deactivate'}`, { method: 'POST' })
+  } catch (error) {
+    throw toLaboratoryError(error, '')
   }
-  laboratory.is_active = isActive
-  laboratory.updated_at = DEMO_NOW
 }
 
 // Técnicos activos que pueden ser responsables de un laboratorio.
+// Sigue leyendo mocks/ hasta conectar la API de usuarios; los ids coinciden con seed_demo.
 export function getResponsibleOptions() {
   const technicianRoleId = roles.find((role) => role.code === 'TECHNICIAN')!.id
   return users
