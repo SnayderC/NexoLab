@@ -5,7 +5,7 @@ import Button from '../../../components/ui/Button'
 import ErrorState from '../../../components/ui/ErrorState'
 import { useToast } from '../../../components/ui/toast/useToast'
 import { useCurrentUser } from '../../auth/useCurrentUser'
-import type { DashboardFilters as Filters } from '../api'
+import { RiskCalculationError, type DashboardFilters as Filters } from '../api'
 import TableSkeleton from '../../../components/ui/TableSkeleton'
 import { BannerSkeleton, KpiRowSkeleton, RiskColumnsSkeleton } from '../components/DashboardSkeleton'
 import DashboardFilters from '../components/DashboardFilters'
@@ -29,7 +29,12 @@ function DashboardPage() {
         showToast({
           message: `Riesgo actualizado: ${counts.HIGH} alto · ${counts.MEDIUM} medio · ${counts.LOW} bajo`,
         }),
-      onError: () => showToast({ message: 'No se pudo recalcular el riesgo', tone: 'error' }),
+      // Si el modelo no pudo calcular (por ejemplo, sin modelo inicial), el backend explica por qué.
+      onError: (error) =>
+        showToast({
+          message: error instanceof RiskCalculationError ? error.message : 'No se pudo recalcular el riesgo',
+          tone: 'error',
+        }),
     })
   }
 
@@ -72,7 +77,11 @@ function DashboardPage() {
                   icon={Clock}
                   tone="info"
                   title="Tiempo promedio de atención"
-                  value={`${summary.indicators.avg_resolution_minutes} min`}
+                  value={
+                    summary.indicators.avg_resolution_minutes === null
+                      ? '—'
+                      : `${summary.indicators.avg_resolution_minutes} min`
+                  }
                   detail="Últimos 30 días"
                 />
                 <KpiCard

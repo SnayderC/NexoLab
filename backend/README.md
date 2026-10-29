@@ -72,6 +72,13 @@ Base: `/api/v1/`. Autenticación por sesión de Django (cookie `sessionid`, `htt
 | `PATCH users/{id}` | Administrador | 200 · 400. No cambia la contraseña |
 | `POST users/{id}/activate` · `deactivate` | Administrador | 200 · 409 `{code: "self_deactivation"}` si es la propia cuenta |
 | `POST users/{id}/reset-password` | Administrador | 204 · 400 con los mensajes de `new_password` |
+| `GET device-types` | Con sesión | 200 con los tipos y si están seleccionados |
+| `GET devices` | Con sesión | 200 `{items, total}` con riesgo vigente; filtros `search`, `laboratory_id`, `device_type_id`, `status`, `risk_level` y `page` (10 por página) |
+| `POST devices` | Administrador | 201 · 400 (formato RN-11, prefijo D-21, duplicado, laboratorio inactivo, tipo no seleccionado) |
+| `PATCH devices/{id}` | Administrador | 200 · 400. Ubicación, especificaciones y `status = RETIRED` (RN-12); un retirado no vuelve a activo |
+| `GET devices/{code}` | Con sesión | 200 con datos, retiro, riesgo vigente, perfil del grupo y evolución mensual · 404 |
+| `GET devices/{code}/incidents` | Con sesión | 200 `{items, total, now}`, 10 por página |
+| `GET dashboard/summary` | Con sesión | 200 con indicadores, última ejecución, grupos de riesgo e incidencias abiertas; filtros `laboratory_id` y `device_type_id` |
 | `POST risk/recalculate` | Administrador | 200 con la ejecución y los equipos por nivel · 409 `{code: "risk_failed"}` si el cálculo falla |
 | `GET laboratories` | Con sesión | 200 con cada laboratorio, su responsable, equipos activos, composición por tipo (`device_counts`) e incidencias abiertas |
 | `POST laboratories` | Administrador | 201 con el laboratorio · 400 con los mensajes por campo |
@@ -109,5 +116,5 @@ Toda petición que no sea `GET` debe enviar la cabecera `X-CSRFToken` con el val
 
 - `apps/users/tests.py` (25): login, CSRF, sesión, cierre de sesión, cambio de contraseña, permiso de administrador
   y administración de usuarios.
-- `apps/infrastructure/tests.py` (13): laboratorios, sus validaciones, RN-06 y RN-10.
-- `apps/risk/tests.py` (18): variables, algoritmo, RN-23, carga inicial con Kaggle, reuso del modelo y recálculo.
+- `apps/infrastructure/tests.py` (21): laboratorios (RN-10) y equipos (RN-07, RN-11, RN-12, D-21), con RN-06.
+- `apps/risk/tests.py` (20): variables, algoritmo, RN-23, carga inicial con Kaggle, reuso del modelo, recálculo y dashboard.

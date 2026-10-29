@@ -487,13 +487,14 @@ Base: `/api/v1/`. JSON en `snake_case`. Todos los endpoints requieren autenticac
 | `GET auth/csrf` · `POST auth/login` · `POST auth/logout` · `GET auth/me` | Sesión ✅ |
 | `POST auth/change-password` | Mi perfil ✅ |
 | `GET catalogs` | Componentes, estados, acciones, niveles de riesgo y tipos seleccionados |
-| `GET dashboard/summary` | Indicadores, grupos de riesgo y última ejecución |
+| `GET dashboard/summary` | Indicadores, grupos de riesgo y última ejecución ✅ |
 | `GET incidents` · `POST incidents` | Lista con filtros y paginación · registrar |
 | `GET incidents/{id}` · `POST incidents/{id}/close` | Detalle · cerrar |
 | `POST incidents/{id}/void` 🔒 | Anular (registro por error) |
-| `GET devices` · `GET devices/{code}` | Lista y detalle |
-| `GET devices/{code}/incidents` · `GET devices/{code}/risk-history` | Historial |
-| `POST devices` 🔒 · `PATCH devices/{code}` 🔒 · `POST devices/{code}/retire` 🔒 | Gestión |
+| `GET devices` · `GET devices/{code}` | Lista y detalle con riesgo vigente y evolución mensual (D-36) ✅ |
+| `GET devices/{code}/incidents` | Historial ✅ |
+| `POST devices` 🔒 · `PATCH devices/{id}` 🔒 (incluye el retiro) | Gestión (D-36) ✅ |
+| `GET device-types` | Tipos de equipo para filtros y formularios ✅ |
 | `GET laboratories` · `POST` 🔒 · `PATCH laboratories/{id}` 🔒 · `POST laboratories/{id}/activate` 🔒 · `POST laboratories/{id}/deactivate` 🔒 | Laboratorios ✅ |
 | `GET device-types` 🔒 · `POST device-types` 🔒 · `PUT device-types/selection` 🔒 | Catálogo |
 | `GET users` 🔒 · `POST users` 🔒 · `PATCH users/{id}` 🔒 | Usuarios ✅ |
@@ -558,7 +559,8 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 ### Fase 4 — API de administración
 - [x] Laboratorios: listar, crear, editar, activar y desactivar (RN-10), con 13 pruebas (`apps/infrastructure/tests.py`).
 - [x] Usuarios: listar con carga de trabajo, crear con contraseña temporal, editar, activar, desactivar (RN-05) y restablecer contraseña (RN-03, RN-04), con 9 pruebas nuevas en `apps/users/tests.py`.
-- [ ] Equipos y catálogo, con sus reglas y pruebas. Equipos espera la decisión sobre el riesgo (D-31).
+- [x] Equipos: listar con riesgo y filtros, crear (RN-11, D-21, RN-07), editar y retirar (RN-12, D-20), historial e incidencias del equipo, con 8 pruebas.
+- [ ] Catálogo de tipos, con sus reglas y pruebas.
 - [x] Comando `seed_demo` con catálogos, usuarios, laboratorios, equipos y las 33 incidencias de demostración (D-28, D-29). Falta el inventario real (sección 18).
 
 ### Fase 5 — API de incidencias
@@ -569,12 +571,13 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 - [x] Servicio de cálculo de variables, agrupamiento y asignación de niveles (sección 10, 18 pruebas en `apps/risk/tests.py`).
 - [x] Entrenamiento inicial con Kaggle, disparador `MANUAL` y comando `recalculate_risk`.
 - [ ] Disparadores `INCIDENT_CLOSED` y `CATALOG_CHANGE` (con las API de incidencias y catálogo).
-- [ ] Endpoint del dashboard e historial de riesgo, con pruebas.
+- [x] Endpoint del dashboard e historial de riesgo, con pruebas.
 
 ### Fase 7 — Conectar frontend y backend
 - [x] Cliente de API (`lib/apiClient.ts`) y proxy de Vite (D-25).
 - [x] `features/auth/api.ts`: login, sesión, cierre de sesión y cambio de contraseña con la API real.
 - [x] `features/laboratories/api.ts` y `features/users/api.ts` con la API real (D-30). Se borró `userWorkload` de `mocks/users.ts`.
+- [x] `features/dashboard/api.ts` y `features/devices/api.ts` con la API real: el riesgo sale del K-Means (D-36).
 - [ ] Cambiar el resto de `api.ts` de `mocks/` a la API real.
 - [ ] Probar todos los flujos con los dos roles.
 
@@ -645,6 +648,7 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 | D-33 | La carga inicial (`INITIAL_LOAD`) entrena con Kaggle. Las demás ejecuciones entrenan con el historial propio cuando al menos 30 equipos tienen 2 o más incidencias (`RISK_MIN_OWN_HISTORY_DEVICES`); mientras tanto clasifican con el modelo de Kaggle guardado | Con pocos equipos con historial, K-Means con k = 3 forma grupos sin sentido. 30 es un mínimo práctico para 3 grupos (unos 10 por grupo). **Pendiente:** confirmar el número con el tutor |
 | D-34 | Del dataset de Kaggle se usan solo incidencias (`Category = incident`) de Desktop, Laptop, Thin Client, Monitor, Keyboard y UPS, y los días se miden desde la última fecha del dataset | Son los equipos más parecidos a los del laboratorio; aplicaciones, servidores y redes fallan de otra forma. Medir desde la fecha actual daría más de 10 años para todos |
 | D-35 | El nivel de cada grupo se asigna con el puntaje incidencias − días desde la última falla − intervalo promedio, sobre los centroides estandarizados | Traduce la regla del paso 4 ("más incidencias y fallas más recientes y frecuentes es HIGH") a un cálculo reproducible, con las 3 variables con el mismo peso |
+| D-36 | Dashboard y Equipos usan el riesgo vigente de la base. `GET devices/{code}` incluye el riesgo actual, el perfil del grupo y la evolución mensual (no hay `risk-history` aparte). El retiro se hace con `PATCH devices/{id}` (`status = RETIRED`) y quita el resultado vigente. Un equipo nuevo recibe un resultado LOW por RN-23 en la última ejecución hasta el próximo cálculo. Los "días desde la última falla" son los del momento del cálculo. Las opciones de filtros y formularios vienen de `GET laboratories` y `GET device-types`. El panel "Información del equipo" del registro sigue con `mocks/` hasta conectar Incidencias | Menos rutas y los mismos datos que muestra el Figma. El "Promedio" de cada columna es el centroide del modelo usado: mientras se use el de Kaggle (D-33), muestra el perfil de Kaggle |
 
 ---
 

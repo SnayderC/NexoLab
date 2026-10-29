@@ -1,5 +1,6 @@
 import Select, { type SelectOption } from '../../../components/ui/Select'
-import { getDashboardFilterOptions, type DashboardFilters as Filters } from '../api'
+import { useDeviceOptions } from '../../devices/useDeviceOptions'
+import type { DashboardFilters as Filters } from '../api'
 
 type DashboardFiltersProps = {
   filters: Filters
@@ -8,22 +9,20 @@ type DashboardFiltersProps = {
 
 const ALL = 'all'
 
-const { laboratories, deviceTypes } = getDashboardFilterOptions()
-
-const laboratoryOptions: SelectOption[] = [
-  { value: ALL, label: 'Todos' },
-  ...laboratories.map((lab) => ({ value: String(lab.id), label: lab.code })),
-]
-
-const deviceTypeOptions: SelectOption[] = [
-  { value: ALL, label: 'Todos' },
-  ...deviceTypes.map((type) => ({ value: String(type.id), label: type.name })),
-]
-
 const toValue = (id: number | null) => (id === null ? ALL : String(id))
 const toId = (value: string) => (value === ALL ? null : Number(value))
 
 function DashboardFilters({ filters, onChange }: DashboardFiltersProps) {
+  const { options } = useDeviceOptions()
+  const laboratoryOptions: SelectOption[] = [
+    { value: ALL, label: 'Todos' },
+    ...options.laboratories.map((lab) => ({ value: String(lab.id), label: lab.code })),
+  ]
+  const deviceTypeOptions: SelectOption[] = [
+    { value: ALL, label: 'Todos' },
+    ...options.deviceTypes.map((type) => ({ value: String(type.id), label: type.name })),
+  ]
+
   return (
     <div className="flex gap-4">
       <div className="w-52">

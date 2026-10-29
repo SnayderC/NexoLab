@@ -28,11 +28,13 @@ function RiskColumn({ group }: { group: RiskGroup }) {
           </span>
         </div>
         <p className={`text-xs leading-4.5 font-medium ${styles.text}`}>{group.risk_level.recommended_action}</p>
-        <p className="text-xs leading-4.5 text-text-muted">
-          Promedio: {formatDecimal(group.avg_incident_count)} incidencias · última falla hace{' '}
-          {formatDecimal(group.avg_days_since_last_failure)} días · falla cada{' '}
-          {formatDecimal(group.avg_failure_interval_days)} días
-        </p>
+        {group.avg_incident_count !== null && (
+          <p className="text-xs leading-4.5 text-text-muted">
+            Promedio: {formatDecimal(group.avg_incident_count)} incidencias · última falla hace{' '}
+            {formatDecimal(group.avg_days_since_last_failure ?? 0)} días · falla cada{' '}
+            {formatDecimal(group.avg_failure_interval_days ?? 0)} días
+          </p>
+        )}
       </header>
 
       {total === 0 ? (

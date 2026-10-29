@@ -1,3 +1,5 @@
+import { formatDecimal } from './formatNumber'
+
 const MINUTE_MS = 60_000
 const HOUR_MS = 60 * MINUTE_MS
 const DAY_MS = 24 * HOUR_MS
@@ -48,7 +50,7 @@ export function formatDaysAgo(days: number): string {
   return `hace ${days} ${days === 1 ? 'día' : 'días'}`
 }
 
-// "1 día", "5 días".
+// "1 día", "5 días", "5,1 días" (el modelo calcula promedios con decimales).
 export function formatDays(days: number): string {
-  return `${days} ${days === 1 ? 'día' : 'días'}`
+  return `${formatDecimal(days)} ${days === 1 ? 'día' : 'días'}`
 }

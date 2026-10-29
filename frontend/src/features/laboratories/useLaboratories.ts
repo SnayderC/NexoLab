@@ -16,7 +16,7 @@ function useInvalidateLaboratories() {
   const queryClient = useQueryClient()
   return () =>
     Promise.all(
-      [['laboratories'], ['incidents'], ['dashboard']].map((queryKey) =>
+      [['laboratories'], ['incidents'], ['dashboard'], ['devices']].map((queryKey) =>
         queryClient.invalidateQueries({ queryKey }),
       ),
     )

@@ -15,6 +15,10 @@ export function useRecalculateRisk() {
 
   return useMutation({
     mutationFn: recalculateRisk,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['dashboard'] }),
+    // El riesgo también aparece en la lista y el historial de equipos.
+    onSuccess: () =>
+      Promise.all(
+        [['dashboard'], ['devices']].map((queryKey) => queryClient.invalidateQueries({ queryKey })),
+      ),
   })
 }

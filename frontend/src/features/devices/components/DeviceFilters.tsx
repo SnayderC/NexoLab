@@ -1,7 +1,8 @@
 import SearchInput from '../../../components/ui/SearchInput'
 import Select, { type SelectOption } from '../../../components/ui/Select'
 import type { RiskLevelCode } from '../../../types/catalog'
-import { getDeviceFormOptions, type DeviceListFilters, type DeviceStatusFilter } from '../api'
+import type { DeviceListFilters, DeviceStatusFilter } from '../api'
+import { useDeviceOptions } from '../useDeviceOptions'
 
 type FilterValues = Omit<DeviceListFilters, 'page'>
 
@@ -11,16 +12,6 @@ type DeviceFiltersProps = {
 }
 
 const ALL = 'all'
-const { laboratories, deviceTypes } = getDeviceFormOptions()
-
-const laboratoryOptions: SelectOption[] = [
-  { value: ALL, label: 'Todos' },
-  ...laboratories.map((lab) => ({ value: String(lab.id), label: lab.code })),
-]
-const typeOptions: SelectOption[] = [
-  { value: ALL, label: 'Todos' },
-  ...deviceTypes.map((type) => ({ value: String(type.id), label: type.name })),
-]
 const statusOptions: SelectOption[] = [
   { value: 'ACTIVE', label: 'Activo' },
   { value: 'RETIRED', label: 'Retirado' },
@@ -38,6 +29,16 @@ const toId = (value: string) => (value === ALL ? null : Number(value))
 
 // Barra de filtros del Figma 5.4.
 function DeviceFilters({ filters, onChange }: DeviceFiltersProps) {
+  const { options } = useDeviceOptions()
+  const laboratoryOptions: SelectOption[] = [
+    { value: ALL, label: 'Todos' },
+    ...options.laboratories.map((lab) => ({ value: String(lab.id), label: lab.code })),
+  ]
+  const typeOptions: SelectOption[] = [
+    { value: ALL, label: 'Todos' },
+    ...options.deviceTypes.map((type) => ({ value: String(type.id), label: type.name })),
+  ]
+
   return (
     <div className="flex gap-3">
       <SearchInput

@@ -15,4 +15,9 @@ urlpatterns = [
         views.LaboratoryActivationView.as_view(is_active=False),
         name='laboratory-deactivate',
     ),
+    path('device-types', views.DeviceTypeListView.as_view(), name='device-type-list'),
+    path('devices', views.DeviceListView.as_view(), name='device-list'),
+    path('devices/<int:pk>', views.DeviceDetailView.as_view(), name='device-detail'),
+    path('devices/<str:code>', views.DeviceHistoryView.as_view(), name='device-history'),
+    path('devices/<str:code>/incidents', views.DeviceIncidentsView.as_view(), name='device-incidents'),
 ]

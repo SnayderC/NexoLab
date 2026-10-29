@@ -3,7 +3,7 @@ import Badge from '../../../components/ui/Badge'
 import Skeleton from '../../../components/ui/Skeleton'
 import { formatDate } from '../../../lib/formatDate'
 import DeviceRiskCard from '../../devices/components/DeviceRiskCard'
-import { useDeviceInfo } from '../../devices/useDeviceInfo'
+import { useDeviceInfo } from '../useDeviceInfo'
 import DetailField from './DetailField'
 import IncidentStatusBadge from './IncidentStatusBadge'
 

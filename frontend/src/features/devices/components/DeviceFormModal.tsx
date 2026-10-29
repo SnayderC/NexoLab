@@ -9,18 +9,11 @@ import Input from '../../../components/ui/Input'
 import Modal from '../../../components/ui/Modal'
 import Select from '../../../components/ui/Select'
 import { useToast } from '../../../components/ui/toast/useToast'
-import {
-  DEVICE_CODE_PATTERN,
-  DuplicateDeviceCodeError,
-  getDeviceFormOptions,
-  type DeviceListItem,
-} from '../api'
+import { DEVICE_CODE_PATTERN, DeviceCodeError, type DeviceListItem, type DeviceOptions } from '../api'
+import { useDeviceOptions } from '../useDeviceOptions'
 import { useCreateDevice, useUpdateDevice } from '../useDevices'
 
 const FORM_ID = 'device-form'
-const { laboratories, deviceTypes } = getDeviceFormOptions()
-const laboratoryOptions = laboratories.map((lab) => ({ value: String(lab.id), label: lab.code }))
-const typeOptions = deviceTypes.map((type) => ({ value: String(type.id), label: type.name }))
 const statusOptions = [
   { value: 'ACTIVE', label: 'Activo' },
   { value: 'RETIRED', label: 'Retirado' },
@@ -28,8 +21,10 @@ const statusOptions = [
 
 const FORMAT_MESSAGE = 'El código debe tener el formato LAB-TIPO-NN, por ejemplo H103-PC-13'
 
-// RN-11: formato LAB-TIPO-NN y, además, que empiece con el laboratorio y el tipo elegidos.
-const deviceSchema = z
+// RN-11: formato LAB-TIPO-NN y, además, que empiece con el laboratorio y el tipo elegidos (D-21).
+// El backend vuelve a validar las dos reglas.
+const buildDeviceSchema = ({ laboratories, deviceTypes }: DeviceOptions) =>
+  z
   .object({
     code: z.string().trim().min(1, 'Ingresa el código'),
     laboratory_id: z.string().min(1, 'Selecciona un laboratorio'),
@@ -53,7 +48,7 @@ const deviceSchema = z
     }
   })
 
-type DeviceFormValues = z.infer<typeof deviceSchema>
+type DeviceFormValues = z.infer<ReturnType<typeof buildDeviceSchema>>
 
 type DeviceFormModalProps = {
   // null = nuevo equipo.
@@ -62,7 +57,15 @@ type DeviceFormModalProps = {
 }
 
 // Modal del Figma 5.6 "Nuevo equipo", 5.7 "Código con formato inválido" y 5.8 "Editar / Confirmar retiro".
-function DeviceFormModal({ device, onClose }: DeviceFormModalProps) {
+// Espera las opciones de la API antes de armar el formulario.
+function DeviceFormModal(props: DeviceFormModalProps) {
+  const { options, isPending } = useDeviceOptions()
+  return isPending ? null : <DeviceForm {...props} options={options} />
+}
+
+function DeviceForm({ device, onClose, options }: DeviceFormModalProps & { options: DeviceOptions }) {
+  const laboratoryOptions = options.laboratories.map((lab) => ({ value: String(lab.id), label: lab.code }))
+  const typeOptions = options.deviceTypes.map((type) => ({ value: String(type.id), label: type.name }))
   const { showToast } = useToast()
   const createDevice = useCreateDevice()
   const updateDevice = useUpdateDevice()
@@ -78,7 +81,7 @@ function DeviceFormModal({ device, onClose }: DeviceFormModalProps) {
     setError,
     formState: { errors },
   } = useForm<DeviceFormValues>({
-    resolver: zodResolver(deviceSchema),
+    resolver: zodResolver(buildDeviceSchema(options)),
     defaultValues: {
       code: device?.code ?? '',
       laboratory_id: device ? String(device.laboratory_id) : '',
@@ -90,14 +93,12 @@ function DeviceFormModal({ device, onClose }: DeviceFormModalProps) {
   })
 
   const onError = (error: Error) =>
-    error instanceof DuplicateDeviceCodeError
+    error instanceof DeviceCodeError
       ? setError('code', { message: error.message })
       : showToast({ message: 'No se pudo guardar el equipo', tone: 'error' })
 
   function save(values: DeviceFormValues) {
-    const input = {
-      laboratory_id: Number(values.laboratory_id),
-      device_type_id: Number(values.device_type_id),
+    const details = {
       physical_location: values.physical_location || null,
       specifications: values.specifications || null,
     }
@@ -108,14 +109,19 @@ function DeviceFormModal({ device, onClose }: DeviceFormModalProps) {
 
     if (!device) {
       createDevice.mutate(
-        { ...input, code: values.code },
+        {
+          ...details,
+          code: values.code,
+          laboratory_id: Number(values.laboratory_id),
+          device_type_id: Number(values.device_type_id),
+        },
         { onSuccess: onSuccess(`Equipo ${values.code.toUpperCase()} creado`), onError },
       )
       return
     }
     const retiring = !isRetired && values.status === 'RETIRED'
     updateDevice.mutate(
-      { id: device.id, input: { ...input, status: values.status } },
+      { id: device.id, input: { ...details, status: values.status } },
       { onSuccess: onSuccess(retiring ? `Equipo ${device.code} retirado` : 'Equipo actualizado'), onError },
     )
   }

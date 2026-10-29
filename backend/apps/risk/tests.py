@@ -207,3 +207,32 @@ class RecalculateApiTests(RiskDataMixin, APITestCase):
     def test_rn06_tecnico_no_recalcula(self):
         self.client.force_authenticate(self.technician)
         self.assertEqual(self.client.post(reverse('risk-recalculate')).status_code, status.HTTP_403_FORBIDDEN)
+
+
+@override_settings(RISK_MIN_OWN_HISTORY_DEVICES=3)
+class DashboardSummaryTests(RiskDataMixin, APITestCase):
+    def test_resumen_con_indicadores_grupos_e_incidencias_abiertas(self):
+        self.client.force_authenticate(self.technician)
+        empty = self.client.get(reverse('dashboard-summary')).data
+        self.assertIsNone(empty['last_run'])  # todavía sin calcular
+
+        calculate_risk(Trigger.MANUAL)
+        data = self.client.get(reverse('dashboard-summary')).data
+        self.assertEqual(data['indicators']['open_incident_count'], 33)
+        self.assertEqual(data['indicators']['active_device_count'], 11)  # incluye la impresora activa
+        self.assertIsNone(data['indicators']['avg_resolution_minutes'])  # ninguna cerrada
+        self.assertEqual(data['last_run']['kmeans_device_count'], 9)
+        self.assertEqual(data['last_run']['insufficient_history_count'], 1)
+        groups = {group['risk_level']['code']: group for group in data['risk_groups']}
+        self.assertEqual(groups['HIGH']['devices'][0]['device_code'], 'H101-PC-01')  # más incidencias primero
+        self.assertIsNotNone(groups['HIGH']['profile'])
+        self.assertEqual(sum(len(group['devices']) for group in groups.values()), 10)
+
+    def test_filtros_cambian_grupos_pero_no_indicadores(self):
+        calculate_risk(Trigger.MANUAL)
+        self.client.force_authenticate(self.admin)
+        other_type = DeviceType.objects.get(code='IMP').id
+        data = self.client.get(reverse('dashboard-summary'), {'device_type_id': other_type}).data
+        self.assertEqual(sum(len(group['devices']) for group in data['risk_groups']), 0)
+        self.assertEqual(data['open_incidents'], [])
+        self.assertEqual(data['indicators']['open_incident_count'], 33)

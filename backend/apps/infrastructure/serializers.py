@@ -1,8 +1,10 @@
+import re
+
 from rest_framework import serializers
 
 from apps.users.models import Role, User
 
-from .models import Laboratory
+from .models import Device, DeviceStatus, DeviceType, Laboratory
 
 
 class LaboratoryListSerializer(serializers.ModelSerializer):
@@ -82,3 +84,78 @@ class LaboratoryWriteSerializer(serializers.ModelSerializer):
         # Una ubicación vacía se guarda como NULL.
         value = (value or '').strip()
         return value or None
+
+
+class DeviceTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DeviceType
+        fields = ['id', 'code', 'name', 'is_selected', 'is_active']
+
+
+# RN-11: formato LAB-TIPO-NN, por ejemplo H103-PC-13.
+DEVICE_CODE_PATTERN = re.compile(r'^[A-Z]\d{3}-[A-Z]{2,5}-\d{2}$')
+FORMAT_MESSAGE = 'El código debe tener el formato LAB-TIPO-NN, por ejemplo H103-PC-13'
+
+
+class DeviceCreateSerializer(serializers.ModelSerializer):
+    """Nuevo equipo (Figma 5.6 y 5.7). Siempre empieza activo."""
+
+    laboratory_id = serializers.PrimaryKeyRelatedField(source='laboratory', queryset=Laboratory.objects.all())
+    device_type_id = serializers.PrimaryKeyRelatedField(source='device_type', queryset=DeviceType.objects.all())
+
+    class Meta:
+        model = Device
+        fields = ['code', 'laboratory_id', 'device_type_id', 'physical_location', 'specifications']
+        extra_kwargs = {'code': {'validators': []}}
+
+    def validate_code(self, value):
+        code = value.strip().upper()
+        if not DEVICE_CODE_PATTERN.match(code):
+            raise serializers.ValidationError(FORMAT_MESSAGE)
+        if Device.objects.filter(code__iexact=code).exists():
+            raise serializers.ValidationError(f'Ya existe un equipo con el código {code}')
+        return code
+
+    def validate_laboratory_id(self, laboratory):
+        if not laboratory.is_active:
+            raise serializers.ValidationError('El laboratorio está desactivado')
+        return laboratory
+
+    def validate_device_type_id(self, device_type):
+        # RN-07: solo los tipos seleccionados aparecen en los formularios.
+        if not device_type.is_selected or not device_type.is_active:
+            raise serializers.ValidationError('El tipo no está seleccionado en el catálogo')
+        return device_type
+
+    def validate(self, attrs):
+        # D-21: el código empieza con el laboratorio y el tipo elegidos.
+        prefix = f"{attrs['laboratory'].code}-{attrs['device_type'].code}-"
+        if not attrs['code'].startswith(prefix):
+            raise serializers.ValidationError({'code': [f'El código debe empezar con {prefix}']})
+        return attrs
+
+    def validate_physical_location(self, value):
+        return (value or '').strip() or None
+
+    def validate_specifications(self, value):
+        return (value or '').strip() or None
+
+
+class DeviceUpdateSerializer(serializers.Serializer):
+    """Editar un equipo (Figma 5.8). D-20: el código, el laboratorio y el tipo no cambian;
+    pasar a RETIRED lo retira (RN-12) y un retirado no vuelve a activo."""
+
+    physical_location = serializers.CharField(max_length=100, allow_blank=True, allow_null=True, required=False)
+    specifications = serializers.CharField(allow_blank=True, allow_null=True, required=False)
+    status = serializers.ChoiceField(choices=[DeviceStatus.ACTIVE, DeviceStatus.RETIRED], required=False)
+
+    def validate_physical_location(self, value):
+        return (value or '').strip() or None
+
+    def validate_specifications(self, value):
+        return (value or '').strip() or None
+
+    def validate_status(self, value):
+        if self.instance.device_status.code == DeviceStatus.RETIRED and value == DeviceStatus.ACTIVE:
+            raise serializers.ValidationError('Un equipo retirado no vuelve a activarse')
+        return value

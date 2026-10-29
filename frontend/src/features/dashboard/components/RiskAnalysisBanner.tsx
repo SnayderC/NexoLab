@@ -16,8 +16,9 @@ function RiskAnalysisBanner({ lastRun, canRecalculate, isRecalculating, onRecalc
     <div className="flex min-h-16 items-center gap-3 rounded-lg border border-info-border bg-info-bg px-4 py-3">
       <Sparkles className="size-5 shrink-0 text-primary" aria-hidden />
       <p className="flex-1 leading-5 text-info-text">
-        Riesgo actualizado el {formatDateTime(lastRun.finished_at)} · {lastRun.kmeans_device_count} equipos
-        analizados por K-Means · {lastRun.insufficient_history_count} sin historial suficiente
+        {lastRun
+          ? `Riesgo actualizado el ${formatDateTime(lastRun.finished_at)} · ${lastRun.kmeans_device_count} equipos analizados por K-Means · ${lastRun.insufficient_history_count} sin historial suficiente`
+          : 'El riesgo todavía no se ha calculado'}
       </p>
       {canRecalculate && (
         <Button
