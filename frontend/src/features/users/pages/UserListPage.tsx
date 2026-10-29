@@ -31,7 +31,7 @@ function UserListPage() {
     const target = toggleTarget
     setToggleTarget(null)
     setActive.mutate(
-      { id: target.id, isActive: !target.is_active, currentUserId: currentUser.id },
+      { id: target.id, isActive: !target.is_active },
       {
         onSuccess: () =>
           showToast({

@@ -7,7 +7,7 @@ import Modal from '../../../components/ui/Modal'
 import Notice from '../../../components/ui/Notice'
 import PasswordInput from '../../../components/ui/PasswordInput'
 import { useToast } from '../../../components/ui/toast/useToast'
-import type { UserListItem } from '../api'
+import { InvalidUserPasswordError, type UserListItem } from '../api'
 import { newPasswordSchema } from '../passwordSchema'
 import { useResetPassword } from '../useUsers'
 
@@ -29,6 +29,7 @@ function ResetPasswordModal({ user, onClose }: { user: UserListItem; onClose: ()
   const {
     register,
     handleSubmit,
+    setError,
     formState: { errors },
   } = useForm<ResetValues>({ resolver: zodResolver(resetSchema), defaultValues: { password: '', confirmation: '' } })
 
@@ -40,7 +41,11 @@ function ResetPasswordModal({ user, onClose }: { user: UserListItem; onClose: ()
           onClose()
           showToast({ message: `Contraseña de ${user.first_name} ${user.last_name} restablecida` })
         },
-        onError: () => showToast({ message: 'No se pudo restablecer la contraseña', tone: 'error' }),
+        onError: (error) =>
+          // RN-04: mensajes de los validadores de Django (ej.: parecida a los datos del usuario).
+          error instanceof InvalidUserPasswordError
+            ? setError('password', { message: error.message })
+            : showToast({ message: 'No se pudo restablecer la contraseña', tone: 'error' }),
       },
     )
   }

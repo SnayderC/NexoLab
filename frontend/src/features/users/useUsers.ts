@@ -22,8 +22,7 @@ export function useSaveUser() {
 export function useSetUserActive() {
   const invalidate = useInvalidateUsers()
   return useMutation({
-    mutationFn: ({ id, isActive, currentUserId }: { id: number; isActive: boolean; currentUserId: number }) =>
-      setUserActive(id, isActive, currentUserId),
+    mutationFn: ({ id, isActive }: { id: number; isActive: boolean }) => setUserActive(id, isActive),
     onSuccess: invalidate,
   })
 }

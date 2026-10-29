@@ -468,8 +468,8 @@ Base: `/api/v1/`. JSON en `snake_case`. Todos los endpoints requieren autenticac
 | `POST devices` 🔒 · `PATCH devices/{code}` 🔒 · `POST devices/{code}/retire` 🔒 | Gestión |
 | `GET laboratories` · `POST` 🔒 · `PATCH laboratories/{id}` 🔒 · `POST laboratories/{id}/activate` 🔒 · `POST laboratories/{id}/deactivate` 🔒 | Laboratorios ✅ |
 | `GET device-types` 🔒 · `POST device-types` 🔒 · `PUT device-types/selection` 🔒 | Catálogo |
-| `GET users` 🔒 · `POST users` 🔒 · `PATCH users/{id}` 🔒 | Usuarios |
-| `POST users/{id}/reset-password` 🔒 · `POST users/{id}/activate` 🔒 · `POST users/{id}/deactivate` 🔒 | Usuarios |
+| `GET users` 🔒 · `POST users` 🔒 · `PATCH users/{id}` 🔒 | Usuarios ✅ |
+| `POST users/{id}/reset-password` 🔒 · `POST users/{id}/activate` 🔒 · `POST users/{id}/deactivate` 🔒 | Usuarios ✅ |
 | `POST risk/recalculate` 🔒 | Recálculo manual |
 
 Los marcados con ✅ ya están programados y probados (detalle en `backend/README.md`).
@@ -529,7 +529,8 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 
 ### Fase 4 — API de administración
 - [x] Laboratorios: listar, crear, editar, activar y desactivar (RN-10), con 13 pruebas (`apps/infrastructure/tests.py`).
-- [ ] Equipos, catálogo y usuarios, con sus reglas y pruebas. (`GET users` ya existe para probar el permiso de administrador.)
+- [x] Usuarios: listar con carga de trabajo, crear con contraseña temporal, editar, activar, desactivar (RN-05) y restablecer contraseña (RN-03, RN-04), con 9 pruebas nuevas en `apps/users/tests.py`.
+- [ ] Equipos y catálogo, con sus reglas y pruebas. Equipos espera la decisión sobre el riesgo (D-31).
 - [x] Comando `seed_demo` con catálogos, usuarios, laboratorios, equipos y las 33 incidencias de demostración (D-28, D-29). Falta el inventario real (sección 18).
 
 ### Fase 5 — API de incidencias
@@ -544,7 +545,7 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 ### Fase 7 — Conectar frontend y backend
 - [x] Cliente de API (`lib/apiClient.ts`) y proxy de Vite (D-25).
 - [x] `features/auth/api.ts`: login, sesión, cierre de sesión y cambio de contraseña con la API real.
-- [x] `features/laboratories/api.ts` con la API real (D-30).
+- [x] `features/laboratories/api.ts` y `features/users/api.ts` con la API real (D-30). Se borró `userWorkload` de `mocks/users.ts`.
 - [ ] Cambiar el resto de `api.ts` de `mocks/` a la API real.
 - [ ] Probar todos los flujos con los dos roles.
 
@@ -610,6 +611,8 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 | D-28 | Comando `seed_demo` (`apps/core`) con la contraseña de `DEMO_PASSWORD` y los mismos identificadores que `frontend/src/mocks/`. Por ahora carga catálogos, usuarios, laboratorios y equipos; las incidencias y el riesgo se cargan en las fases 5 y 6 | Ninguna credencial en el código. Mismos identificadores para que las pantallas que aún usan datos de demostración coincidan con la API |
 | D-29 | `seed_demo` carga desde ya las 33 incidencias de demostración (`apps/core/management/commands/_demo_incidents.py`), adelantándose a la fase 5. Sus `created_at` y `updated_at` siguen a `opened_at` y `closed_at` | Sin ellas, la pantalla de laboratorios (API real) mostraría 0 incidencias abiertas mientras el resto (datos de demostración) muestra 7, y no se podría demostrar RN-10 |
 | D-30 | Conexión por módulos: cada `api.ts` pasa a la API real cuando su backend está listo, sin cambiar las pantallas. `GET laboratories` devuelve la composición como lista (`device_counts`) y el frontend arma el texto "PC 10 · Monitor 10". Mientras tanto, los responsables del formulario de laboratorio se leen de `mocks/users` (los ids coinciden con `seed_demo`) | Cambios pequeños y probados uno a uno. **Límite temporal:** un laboratorio creado con la API todavía no aparece en las pantallas que siguen con datos de demostración (equipos, incidencias, dashboard) hasta conectarlas |
+| D-31 | Los datos de demostración de `mocks/` se quitan de a poco, módulo por módulo, al conectar cada pantalla (no todos de una vez). Equipos, historial y dashboard se conectan cuando se decida cómo guardar el riesgo mientras no exista K-Means: (A) cargar los resultados del Figma en las tablas `hst_` con `seed_demo`, o (B) programar antes el K-Means real | Decisión del 29/10/2026: avanzar con lo que no depende del riesgo (usuarios, catálogo). **Pendiente:** elegir A o B |
+| D-32 | La carga de trabajo de Usuarios (registradas y cerradas) se calcula con `trx_incidents`, sin contar las anuladas. Con los datos de demostración, Carlos muestra 30 y 24 en lugar de 168 y 161 del Figma | Con la API ya no se copian los números del Figma (D-22); salen de las incidencias reales de la base |
 
 ---
 
@@ -617,6 +620,7 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 
 - [x] **Método de autenticación** (fase 3). Resuelto en D-25: sesión de Django con cookie `httpOnly` y CSRF.
 - [ ] **Nombre de la restricción única de `hst_kmeans_centroids`** (D-26): aprobar el cambio en el DBML.
+- [ ] **Riesgo mientras no exista K-Means** (D-31): opción A o B.
 - [ ] **Confirmar D-06** (sin Celery ni Redis).
 - [ ] **Inventario real** de los equipos del Bloque H (código, laboratorio y tipo) para el comando de carga. Si no existe, se usan datos de demostración.
 - [ ] **Mínimo de equipos con historial** para dejar de usar el modelo inicial de Kaggle, y revisar que el CSV filtrado permita calcular las 3 variables.

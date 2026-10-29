@@ -14,8 +14,8 @@ npm run build    # verificación de tipos y build de producción en dist/
 ## Cómo se obtienen los datos
 
 - Cada módulo de `src/features/<módulo>/` pide sus datos solo a través de su `api.ts`.
-- **Con la API real** de Django (mediante `src/lib/apiClient.ts`): autenticación (`features/auth`) y
-  laboratorios (`features/laboratories`).
+- **Con la API real** de Django (mediante `src/lib/apiClient.ts`): autenticación (`features/auth`),
+  laboratorios (`features/laboratories`) y usuarios (`features/users`).
 - **Resto de módulos:** todavía leen `src/mocks/` (datos de demostración). Se cambiarán a la API real
   cuando el backend tenga esos endpoints (fase 7).
 

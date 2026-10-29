@@ -1,4 +1,6 @@
 from django.contrib.auth import login, logout, update_session_auth_hash
+from django.db.models import Count, Prefetch, Q
+from django.shortcuts import get_object_or_404
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 from rest_framework import status
@@ -6,14 +8,25 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.infrastructure.models import Laboratory
+
 from .models import User
 from .permissions import IsAdmin
-from .serializers import ChangePasswordSerializer, LoginSerializer, SessionUserSerializer, UserListSerializer
+from .serializers import (
+    ChangePasswordSerializer,
+    LoginSerializer,
+    ResetPasswordSerializer,
+    SessionUserSerializer,
+    UserListSerializer,
+    UserWriteSerializer,
+)
 
 # RN-01: un único mensaje para cualquier fallo de credenciales.
 INVALID_CREDENTIALS = 'Correo o contraseña incorrectos'
 # RN-02
 ACCOUNT_DISABLED = 'Tu cuenta está desactivada. Contacta al administrador.'
+# RN-05
+SELF_DEACTIVATION = 'No puedes desactivar tu propia cuenta'
 
 
 @method_decorator(ensure_csrf_cookie, name='get')
@@ -95,11 +108,81 @@ class ChangePasswordView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+def users_with_workload():
+    """Usuarios con su rol, laboratorios activos a cargo y carga de trabajo:
+    incidencias registradas y cerradas, sin contar las anuladas (RN-22)."""
+    return (
+        User.objects.select_related('role')
+        .prefetch_related(
+            Prefetch('responsible_laboratories', queryset=Laboratory.objects.filter(is_active=True).order_by('code'))
+        )
+        .annotate(
+            registered_count=Count('reported_incidents', filter=Q(reported_incidents__is_active=True), distinct=True),
+            closed_count=Count('closed_incidents', filter=Q(closed_incidents__is_active=True), distinct=True),
+        )
+        .order_by('id')
+    )
+
+
+def user_response(user_id, response_status=status.HTTP_200_OK):
+    return Response(UserListSerializer(users_with_workload().get(pk=user_id)).data, status=response_status)
+
+
 class UserListView(APIView):
-    """GET users: lista de usuarios (solo administrador, RN-06)."""
+    """GET users · POST users (solo administrador, RN-06)."""
 
     permission_classes = [IsAdmin]
 
     def get(self, request):
-        users = User.objects.select_related('role').order_by('id')
-        return Response(UserListSerializer(users, many=True).data)
+        return Response(UserListSerializer(users_with_workload(), many=True).data)
+
+    def post(self, request):
+        serializer = UserWriteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        return user_response(user.pk, status.HTTP_201_CREATED)
+
+
+class UserDetailView(APIView):
+    """PATCH users/{id} (administrador). La contraseña no se cambia aquí."""
+
+    permission_classes = [IsAdmin]
+
+    def patch(self, request, pk):
+        user = get_object_or_404(User, pk=pk)
+        serializer = UserWriteSerializer(user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return user_response(pk)
+
+
+class UserActivationView(APIView):
+    """POST users/{id}/activate · POST users/{id}/deactivate (administrador)."""
+
+    permission_classes = [IsAdmin]
+    is_active = True
+
+    def post(self, request, pk):
+        user = get_object_or_404(User, pk=pk)
+        # RN-05: nadie se desactiva a sí mismo (dejaría el sistema sin su administrador).
+        if not self.is_active and user.pk == request.user.pk:
+            return Response(
+                {'detail': SELF_DEACTIVATION, 'code': 'self_deactivation'}, status=status.HTTP_409_CONFLICT
+            )
+        user.is_active = self.is_active
+        user.save(update_fields=['is_active', 'updated_at'])
+        return user_response(pk)
+
+
+class ResetPasswordView(APIView):
+    """POST users/{id}/reset-password (administrador, RN-03). El usuario desactivado sigue sin poder entrar."""
+
+    permission_classes = [IsAdmin]
+
+    def post(self, request, pk):
+        user = get_object_or_404(User, pk=pk)
+        serializer = ResetPasswordSerializer(data=request.data, context={'user': user})
+        serializer.is_valid(raise_exception=True)
+        user.set_password(serializer.validated_data['new_password'])
+        user.save(update_fields=['password', 'updated_at'])
+        return Response(status=status.HTTP_204_NO_CONTENT)

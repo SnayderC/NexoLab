@@ -1,11 +1,10 @@
+import { ApiError, apiRequest } from '../../lib/apiClient'
 import { roles } from '../../mocks/catalogs'
-import { DEMO_NOW } from '../../mocks/demoClock'
-import { laboratories } from '../../mocks/laboratories'
-import { users, userWorkload } from '../../mocks/users'
-import type { RoleCode } from '../../types/catalog'
+import type { Role, RoleCode } from '../../types/catalog'
 
-// Por ahora trabaja sobre mocks/ (en memoria). En la fase 7 llamará a la API de usuarios.
-// Las contraseñas nunca se guardan en el frontend: en la demostración solo se validan.
+// Usa la API real: GET/POST users, PATCH users/{id}, POST users/{id}/activate|deactivate
+// y POST users/{id}/reset-password (sección 13). Las contraseñas solo viajan al backend,
+// que las guarda con hash.
 
 export type UserListItem = {
   id: number
@@ -37,77 +36,68 @@ export class DuplicateEmailError extends Error {
 
 export class SelfDeactivationError extends Error {}
 
-const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+// RN-04: el backend rechazó la contraseña con los validadores de Django.
+export class InvalidUserPasswordError extends Error {
+  readonly messages: string[]
 
-export async function listUsers(): Promise<UserListItem[]> {
-  await wait(400)
-  return users.map((user) => {
-    const role = roles.find((r) => r.id === user.role_id)!
-    return {
-      id: user.id,
-      first_name: user.first_name,
-      last_name: user.last_name,
-      email: user.email,
-      role_id: user.role_id,
-      role_code: role.code,
-      role_name: role.name,
-      is_active: user.is_active,
-      last_login_at: user.last_login_at,
-      laboratory_codes: laboratories
-        .filter((lab) => lab.responsible_technician_id === user.id && lab.is_active)
-        .map((lab) => lab.code),
-      registered_count: userWorkload[user.id]?.registered ?? 0,
-      closed_count: userWorkload[user.id]?.closed ?? 0,
-    }
-  })
-}
-
-function assertUniqueEmail(email: string, exceptId: number | null) {
-  const normalized = email.trim().toLowerCase()
-  if (users.some((u) => u.email.toLowerCase() === normalized && u.id !== exceptId)) {
-    throw new DuplicateEmailError()
+  constructor(messages: string[]) {
+    super(messages.join(' '))
+    this.messages = messages
   }
 }
 
-// La contraseña temporal la recibe el backend (RN-03); aquí no se guarda.
-export async function createUser(input: UserInput & { temporary_password: string }): Promise<void> {
-  await wait(600)
-  assertUniqueEmail(input.email, null)
-  users.push({
-    id: Math.max(...users.map((u) => u.id)) + 1,
-    is_active: true,
-    created_at: DEMO_NOW,
-    updated_at: DEMO_NOW,
-    first_name: input.first_name.trim(),
-    last_name: input.last_name.trim(),
-    email: input.email.trim().toLowerCase(),
-    role_id: input.role_id,
-    last_login_at: null,
-  })
+type UserResponse = Omit<UserListItem, 'role_code' | 'role_name'> & { role: Pick<Role, 'id' | 'code' | 'name'> }
+
+function toListItem({ role, ...user }: UserResponse): UserListItem {
+  return { ...user, role_code: role.code, role_name: role.name }
 }
 
-export async function updateUser(id: number, input: UserInput): Promise<void> {
-  await wait(600)
-  assertUniqueEmail(input.email, id)
-  const user = users.find((u) => u.id === id)!
-  Object.assign(user, { ...input, email: input.email.trim().toLowerCase(), updated_at: DEMO_NOW })
+// Convierte las respuestas de reglas de negocio en errores que entienden los formularios.
+function toUserError(error: unknown): unknown {
+  if (error instanceof ApiError) {
+    const passwordMessages = error.data.temporary_password ?? error.data.new_password
+    if (error.status === 400 && Array.isArray(error.data.email)) return new DuplicateEmailError()
+    if (error.status === 400 && Array.isArray(passwordMessages)) {
+      return new InvalidUserPasswordError(passwordMessages.map(String))
+    }
+    if (error.status === 409 && error.data.code === 'self_deactivation') return new SelfDeactivationError()
+  }
+  return error
 }
 
-// RN-05: un usuario no puede desactivarse a sí mismo.
-export async function setUserActive(id: number, isActive: boolean, currentUserId: number): Promise<void> {
-  await wait(600)
-  if (!isActive && id === currentUserId) throw new SelfDeactivationError()
-  const user = users.find((u) => u.id === id)!
-  user.is_active = isActive
-  user.updated_at = DEMO_NOW
+async function request(path: string, method: string, body?: unknown): Promise<void> {
+  try {
+    await apiRequest(path, { method, body })
+  } catch (error) {
+    throw toUserError(error)
+  }
 }
 
-// RN-03: el administrador restablece la contraseña; el backend la guardará con hash.
-export async function resetUserPassword(input: { id: number; new_password: string }): Promise<void> {
-  await wait(600)
-  if (!users.some((u) => u.id === input.id)) throw new Error(`Usuario ${input.id} no encontrado`)
+export async function listUsers(): Promise<UserListItem[]> {
+  const users = await apiRequest<UserResponse[]>('/users')
+  return users.map(toListItem)
 }
 
+// RN-03: el administrador crea el usuario con una contraseña temporal.
+export function createUser(input: UserInput & { temporary_password: string }): Promise<void> {
+  return request('/users', 'POST', input)
+}
+
+export function updateUser(id: number, input: UserInput): Promise<void> {
+  return request(`/users/${id}`, 'PATCH', input)
+}
+
+// RN-05: el backend no permite desactivar la propia cuenta (409).
+export function setUserActive(id: number, isActive: boolean): Promise<void> {
+  return request(`/users/${id}/${isActive ? 'activate' : 'deactivate'}`, 'POST')
+}
+
+// RN-03: el administrador restablece la contraseña.
+export function resetUserPassword(input: { id: number; new_password: string }): Promise<void> {
+  return request(`/users/${input.id}/reset-password`, 'POST', { new_password: input.new_password })
+}
+
+// Sigue leyendo mocks/ hasta conectar los catálogos; los ids coinciden con seed_demo.
 export function getRoleOptions() {
   return roles.map((role) => ({ value: String(role.id), label: role.name }))
 }

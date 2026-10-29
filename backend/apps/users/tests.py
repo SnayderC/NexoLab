@@ -1,8 +1,12 @@
-"""Pruebas de autenticación y permisos (RN-01 a RN-06). Ejecutar: python manage.py test"""
+"""Pruebas de autenticación, permisos y administración de usuarios (RN-01 a RN-06). Ejecutar: python manage.py test"""
 
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
+
+from apps.incidents.models import Component, Incident, IncidentStatus
+from apps.infrastructure.models import Device, DeviceStatus, DeviceType, Laboratory
 
 from .models import Role, User
 
@@ -141,3 +145,103 @@ class PermissionTests(AuthTestCase):
         response = self.client.get(reverse('user-list'))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 3)
+
+
+class UserAdministrationTests(AuthTestCase):
+    """Administración de usuarios (Figma 5.15 a 5.18, RN-03 a RN-05)."""
+
+    def setUp(self):
+        self.client.force_authenticate(self.admin)
+
+    def payload(self, **changes):
+        data = {'first_name': 'María', 'last_name': 'Torres', 'email': 'maria.torres@gmail.com',
+                'role_id': self.technician_role.id, 'temporary_password': 'Temporal-Lab-2026'}
+        return {**data, **changes}
+
+    def test_lista_con_laboratorios_y_carga_de_trabajo(self):
+        lab = Laboratory.objects.create(code='H101', name='Lab 1', station_count=10,
+                                        responsible_technician=self.technician)
+        Laboratory.objects.create(code='H102', name='Lab 2', station_count=10, responsible_technician=self.technician,
+                                  is_active=False)
+        device = Device.objects.create(
+            code='H101-PC-01', laboratory=lab,
+            device_type=DeviceType.objects.create(code='PC', name='PC', is_selected=True),
+            device_status=DeviceStatus.objects.create(code='ACTIVE', name='Activo', is_included_in_kmeans=True),
+        )
+        common = dict(device=device, component=Component.objects.create(code='PC', name='PC'),
+                      incident_status=IncidentStatus.objects.create(code='OPEN', name='Abierta', is_final=False),
+                      priority='LOW', description='Falla de prueba.', opened_at=timezone.now())
+        Incident.objects.create(incident_number='INC-2026-0001', reported_by=self.technician,
+                                closed_by=self.technician, **common)
+        Incident.objects.create(incident_number='INC-2026-0002', reported_by=self.technician, **common)
+        Incident.objects.create(incident_number='INC-2026-0003', reported_by=self.technician, is_active=False,
+                                **common)
+
+        carlos = self.client.get(reverse('user-list')).data[1]
+        self.assertEqual(carlos['laboratory_codes'], ['H101'])  # el laboratorio inactivo no aparece
+        self.assertEqual((carlos['registered_count'], carlos['closed_count']), (2, 1))  # la anulada no cuenta
+        self.assertNotIn('password', carlos)
+
+    def test_crear_usuario_normaliza_correo_y_guarda_hash(self):
+        response = self.client.post(reverse('user-list'), self.payload(email=' Maria.Torres@GMAIL.com '),
+                                    format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['email'], 'maria.torres@gmail.com')
+        user = User.objects.get(email='maria.torres@gmail.com')
+        self.assertNotEqual(user.password, 'Temporal-Lab-2026')
+        self.client.force_authenticate(None)
+        self.assertEqual(self.login('maria.torres@gmail.com', 'Temporal-Lab-2026').status_code, status.HTTP_200_OK)
+
+    def test_correo_duplicado(self):
+        response = self.client.post(reverse('user-list'), self.payload(email='CARLOS.mendoza@gmail.com'),
+                                    format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['email'], ['Ya existe un usuario con este correo'])
+
+    def test_rn04_contrasena_temporal_debil_o_parecida_al_usuario(self):
+        for password in ('12345678', 'password', 'maria.torres'):
+            response = self.client.post(reverse('user-list'), self.payload(temporary_password=password),
+                                        format='json')
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, password)
+            self.assertIn('temporary_password', response.data)
+
+    def test_editar_usuario_sin_cambiar_contrasena(self):
+        url = reverse('user-detail', args=[self.technician.id])
+        response = self.client.patch(url, {'first_name': 'Carlos Andrés', 'email': 'carlos.mendoza@gmail.com',
+                                           'role_id': self.technician_role.id}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['first_name'], 'Carlos Andrés')
+        response = self.client.patch(url, {'temporary_password': 'Otra-Clave-2026'}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_rn05_no_puede_desactivarse_a_si_mismo(self):
+        response = self.client.post(reverse('user-deactivate', args=[self.admin.id]))
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertEqual(response.data['code'], 'self_deactivation')
+
+    def test_desactivar_y_activar_otro_usuario(self):
+        response = self.client.post(reverse('user-deactivate', args=[self.technician.id]))
+        self.assertFalse(response.data['is_active'])
+        self.client.force_authenticate(None)
+        self.assertEqual(self.login('carlos.mendoza@gmail.com').status_code, status.HTTP_403_FORBIDDEN)
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(reverse('user-activate', args=[self.technician.id]))
+        self.assertTrue(response.data['is_active'])
+
+    def test_rn03_restablecer_contrasena(self):
+        url = reverse('user-reset-password', args=[self.technician.id])
+        self.assertEqual(self.client.post(url, {'new_password': '12345678'}, format='json').status_code,
+                         status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(self.client.post(url, {'new_password': 'Nueva-Temporal-2026'}, format='json').status_code,
+                         status.HTTP_204_NO_CONTENT)
+        self.client.force_authenticate(None)
+        self.assertEqual(self.login('carlos.mendoza@gmail.com', 'Nueva-Temporal-2026').status_code,
+                         status.HTTP_200_OK)
+
+    def test_rn06_tecnico_no_administra_usuarios(self):
+        self.client.force_authenticate(self.technician)
+        self.assertEqual(self.client.post(reverse('user-list'), self.payload(), format='json').status_code,
+                         status.HTTP_403_FORBIDDEN)
+        url = reverse('user-reset-password', args=[self.admin.id])
+        self.assertEqual(self.client.post(url, {'new_password': 'Nueva-Temporal-2026'}, format='json').status_code,
+                         status.HTTP_403_FORBIDDEN)

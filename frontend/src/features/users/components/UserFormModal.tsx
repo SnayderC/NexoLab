@@ -8,7 +8,7 @@ import Modal from '../../../components/ui/Modal'
 import PasswordInput from '../../../components/ui/PasswordInput'
 import Select from '../../../components/ui/Select'
 import { useToast } from '../../../components/ui/toast/useToast'
-import { DuplicateEmailError, getRoleOptions, type UserListItem } from '../api'
+import { DuplicateEmailError, getRoleOptions, InvalidUserPasswordError, type UserListItem } from '../api'
 import { newPasswordSchema } from '../passwordSchema'
 import { useSaveUser } from '../useUsers'
 
@@ -68,10 +68,16 @@ function UserFormModal({ user, onClose }: { user: UserListItem | null; onClose: 
           onClose()
           showToast({ message: isNew ? 'Usuario creado' : 'Usuario actualizado' })
         },
-        onError: (error) =>
-          error instanceof DuplicateEmailError
-            ? setError('email', { message: error.message })
-            : showToast({ message: 'No se pudo guardar el usuario', tone: 'error' }),
+        onError: (error) => {
+          if (error instanceof DuplicateEmailError) {
+            setError('email', { message: error.message })
+          } else if (error instanceof InvalidUserPasswordError) {
+            // RN-04: mensajes de los validadores de Django (ej.: contraseña muy común).
+            setError('password', { message: error.message })
+          } else {
+            showToast({ message: 'No se pudo guardar el usuario', tone: 'error' })
+          }
+        },
       },
     )
   }

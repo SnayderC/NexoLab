@@ -53,7 +53,11 @@ Base: `/api/v1/`. Autenticación por sesión de Django (cookie `sessionid`, `htt
 | `POST auth/logout` | Con sesión | 204 |
 | `GET auth/me` | Con sesión | 200 con el usuario · 403 sin sesión |
 | `POST auth/change-password` | Con sesión | 204 · 400 con los mensajes de validación |
-| `GET users` | Administrador | 200 con la lista de usuarios · 403 técnico |
+| `GET users` | Administrador | 200 con cada usuario, su rol, laboratorios a cargo y carga de trabajo · 403 técnico |
+| `POST users` | Administrador | 201 · 400 (correo duplicado, `temporary_password` débil) |
+| `PATCH users/{id}` | Administrador | 200 · 400. No cambia la contraseña |
+| `POST users/{id}/activate` · `deactivate` | Administrador | 200 · 409 `{code: "self_deactivation"}` si es la propia cuenta |
+| `POST users/{id}/reset-password` | Administrador | 204 · 400 con los mensajes de `new_password` |
 | `GET laboratories` | Con sesión | 200 con cada laboratorio, su responsable, equipos activos, composición por tipo (`device_counts`) e incidencias abiertas |
 | `POST laboratories` | Administrador | 201 con el laboratorio · 400 con los mensajes por campo |
 | `PATCH laboratories/{id}` | Administrador | 200 · 400 · 409 si se desactiva con incidencias abiertas |
@@ -72,6 +76,10 @@ Toda petición que no sea `GET` debe enviar la cabecera `X-CSRFToken` con el val
   no parecida a los datos del usuario). Se guardan con hash en `password_hash`.
 - **Cambio de contraseña:** exige la contraseña actual y mantiene la sesión abierta.
 - **RN-06:** las rutas de administración usan el permiso `IsAdmin` (`apps/users/permissions.py`).
+- **Usuarios (RN-03 a RN-05):** el administrador crea usuarios con una contraseña temporal y la restablece;
+  ambas pasan los validadores de Django. El correo se guarda en minúsculas y no se repite. Nadie puede
+  desactivar su propia cuenta. Un usuario desactivado pierde también su sesión abierta. La carga de trabajo
+  cuenta las incidencias registradas y cerradas, sin las anuladas.
 - **Laboratorios:** el código se guarda en mayúsculas y es único sin distinguir mayúsculas
   ("Ya existe un laboratorio con el código H101"); los puestos son al menos 1; el responsable debe ser un
   técnico activo (se puede conservar el actual aunque ya no lo sea).
@@ -84,5 +92,6 @@ Toda petición que no sea `GET` debe enviar la cabecera `X-CSRFToken` con el val
 .venv/bin/python manage.py test apps
 ```
 
-- `apps/users/tests.py` (16): login, CSRF, sesión, cierre de sesión, cambio de contraseña y permiso de administrador.
+- `apps/users/tests.py` (25): login, CSRF, sesión, cierre de sesión, cambio de contraseña, permiso de administrador
+  y administración de usuarios.
 - `apps/infrastructure/tests.py` (13): laboratorios, sus validaciones, RN-06 y RN-10.

@@ -31,11 +31,3 @@ export const users: User[] = [
     last_login_at: '2026-08-02T16:40:00-05:00',
   },
 ]
-
-// Carga de trabajo de la parte 3 del documento (Figma 5.15). Con todas las incidencias reales
-// la calculará el backend; aquí se copia tal cual porque solo hay unas pocas de demostración.
-export const userWorkload: Record<number, { registered: number; closed: number }> = {
-  1: { registered: 6, closed: 6 },
-  2: { registered: 168, closed: 161 },
-  3: { registered: 31, closed: 31 },
-}
