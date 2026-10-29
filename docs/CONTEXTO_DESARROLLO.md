@@ -515,7 +515,7 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 ### Fase 2 — Pantallas con datos de demostración
 - [x] Tipos de TypeScript en `types/` que reflejan la BD.
 - [x] Datos de demostración en `mocks/`: catálogos, usuarios, laboratorios, 145 equipos, resultados de riesgo y las 12 incidencias del documento (ver D-17).
-- [ ] Pantallas en este orden: Login → Dashboard → Incidencias (lista, registrar, cerrar) → Historial → Administración → Perfil.
+- [x] Pantallas en este orden: Login → Dashboard → Incidencias (lista, registrar, cerrar) → Historial → Administración → Perfil.
 - [ ] Cada pantalla con sus estados: carga, vacío, error y validaciones.
 - **Terminado cuando:** la aplicación se ve y se comporta como el prototipo, leyendo de `mocks/` a través de `api.ts`.
 
@@ -594,6 +594,7 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 | D-19 | El gráfico "Evolución del riesgo" se dibuja con SVG propio en lugar de Recharts | Son escalones de 3 niveles con un color por tramo (Figma 4.0): con SVG queda idéntico y se evita una dependencia. Recharts queda en la sección 4 por si se necesitan gráficos más complejos |
 | D-20 | Un equipo retirado no vuelve a activarse; al editar un equipo no se cambian su código, laboratorio ni tipo | El retiro es el final de la vida del equipo (un registro por error se anula con `is_active`, sección 18). El código `LAB-TIPO-NN` incluye el laboratorio y el tipo |
 | D-21 | El código de un equipo nuevo debe empezar con el laboratorio y el tipo elegidos (ej.: H103 + PC → `H103-PC-`) | Complementa RN-11: evita códigos con formato válido pero que no corresponden al equipo |
+| D-22 | Los códigos de los 32 tipos del catálogo y la carga de trabajo de los usuarios (incidencias registradas y cerradas) se copian del Figma en `mocks/` | Son datos de demostración; el backend calculará la carga de trabajo con las incidencias reales |
 
 ---
 

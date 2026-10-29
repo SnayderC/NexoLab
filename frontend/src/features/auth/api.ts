@@ -68,3 +68,12 @@ export function getSession(): SessionUser | null {
     return null
   }
 }
+
+export class WrongCurrentPasswordError extends Error {}
+
+// Mi perfil › Cambiar contraseña (POST auth/change-password en la fase 7).
+// En la demostración solo se comprueba la contraseña actual; la nueva no se guarda.
+export async function changePassword(input: { current_password: string; new_password: string }): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, DEMO_DELAY_MS))
+  if (input.current_password !== import.meta.env.VITE_DEMO_PASSWORD) throw new WrongCurrentPasswordError()
+}
