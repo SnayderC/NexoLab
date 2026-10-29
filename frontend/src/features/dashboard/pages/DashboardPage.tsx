@@ -101,19 +101,21 @@ function DashboardPage() {
 
           <DashboardFilters filters={filters} onChange={setFilters} />
 
+          {/* Retroalimentación de la tutora: primero las incidencias abiertas y debajo los equipos
+              por nivel de riesgo (el Figma 2.0 los tenía al revés). */}
           {isPending ? (
             <>
-              <RiskColumnsSkeleton />
               <TableSkeleton withTitle />
+              <RiskColumnsSkeleton />
             </>
           ) : (
             <>
+              <OpenIncidentsTable incidents={summary.open_incidents} now={summary.generated_at} />
               <div className="grid grid-cols-3 gap-4">
                 {summary.risk_groups.map((group) => (
                   <RiskColumn key={group.risk_level.code} group={group} />
                 ))}
               </div>
-              <OpenIncidentsTable incidents={summary.open_incidents} now={summary.generated_at} />
             </>
           )}
         </>

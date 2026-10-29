@@ -26,7 +26,7 @@ export type DeviceStatus = BaseRecord & {
   is_included_in_kmeans: boolean
 }
 
-export type ComponentCode = 'PC' | 'MONITOR' | 'KEYBOARD' | 'MOUSE' | 'UPS'
+export type ComponentCode = 'PC' | 'MONITOR' | 'KEYBOARD' | 'MOUSE' | 'UPS' | 'SOFTWARE' | 'NETWORK' | 'OTHER'
 
 // cat_components. Se llama AffectedComponent para no confundirlo con un componente de React.
 export type AffectedComponent = BaseRecord & {

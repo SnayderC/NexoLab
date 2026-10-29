@@ -7,12 +7,16 @@ type OptionGroupProps = {
   // Id de la etiqueta que nombra al grupo (FormField la crea como `${id}-label`).
   'aria-labelledby'?: string
   'aria-describedby'?: string
+  // Con muchas opciones se reparten en filas de N columnas (por ejemplo, 8 componentes en 2 filas).
+  columns?: 4 | 5
 }
 
+const columnClasses = { 4: 'grid grid-cols-4', 5: 'grid grid-cols-5' }
+
 // Botones de opción única, como "Componente afectado" y "Prioridad" en el Figma.
-function OptionGroup({ options, value, onChange, ...aria }: OptionGroupProps) {
+function OptionGroup({ options, value, onChange, columns, ...aria }: OptionGroupProps) {
   return (
-    <div role="radiogroup" className="flex gap-2" {...aria}>
+    <div role="radiogroup" className={`gap-2 ${columns ? columnClasses[columns] : 'flex'}`} {...aria}>
       {options.map((option) => {
         const isSelected = option.value === value
 

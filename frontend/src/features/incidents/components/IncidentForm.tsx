@@ -14,10 +14,13 @@ import type { Priority } from '../../../types/incident'
 import { getRegistrationOptions, type CreateIncidentInput } from '../api'
 
 const MAX_DESCRIPTION_LENGTH = 500
+// Si el componente es "Otro", la descripción debe explicar mejor qué falló (D-24).
+const MIN_OTHER_DESCRIPTION_LENGTH = 20
 
 const options = getRegistrationOptions()
 const laboratoryOptions = options.laboratories.map((lab) => ({ value: String(lab.id), label: lab.code }))
 const componentOptions = options.components.map((c) => ({ value: String(c.id), label: c.name }))
+const otherComponentId = String(options.components.find((c) => c.code === 'OTHER')?.id ?? '')
 const priorityOptions: { value: Priority; label: string }[] = [
   { value: 'HIGH', label: 'Alta' },
   { value: 'MEDIUM', label: 'Media' },
@@ -25,7 +28,8 @@ const priorityOptions: { value: Priority; label: string }[] = [
 ]
 
 // RN-16: descripción de 10 a 500 caracteres y fecha de la falla no futura.
-const incidentSchema = z.object({
+const incidentSchema = z
+  .object({
   laboratory_id: z.string().min(1, 'Selecciona un laboratorio'),
   device_id: z.string().min(1, 'Selecciona un equipo'),
   component_id: z.string().min(1, 'Selecciona el componente afectado'),
@@ -42,7 +46,16 @@ const incidentSchema = z.object({
     .trim()
     .min(10, 'La descripción debe tener al menos 10 caracteres')
     .max(MAX_DESCRIPTION_LENGTH),
-})
+  })
+  .refine(
+    (values) =>
+      values.component_id !== otherComponentId ||
+      values.description.trim().length >= MIN_OTHER_DESCRIPTION_LENGTH,
+    {
+      path: ['description'],
+      message: `Si el componente es "Otro", describe la falla con al menos ${MIN_OTHER_DESCRIPTION_LENGTH} caracteres`,
+    },
+  )
 
 type IncidentFormValues = z.input<typeof incidentSchema>
 
@@ -161,6 +174,7 @@ function IncidentForm({
           name="component_id"
           render={({ field }) => (
             <OptionGroup
+              columns={4}
               options={componentOptions}
               value={field.value || null}
               onChange={field.onChange}

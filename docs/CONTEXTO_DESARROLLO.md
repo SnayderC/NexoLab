@@ -257,7 +257,7 @@ Fuente de verdad: `docs/NEXOLAB_BD_v4.dbml`. 14 tablas, 19 relaciones, 144 colum
 | Catálogo | `cat_roles` | TECHNICIAN, ADMIN |
 | Catálogo | `cat_device_types` | 32 tipos de equipo. `is_selected` = elegido por la institución |
 | Catálogo | `cat_device_statuses` | ACTIVE, RETIRED. `is_included_in_kmeans` |
-| Catálogo | `cat_components` | PC, MONITOR, KEYBOARD, MOUSE, UPS (componente afectado) |
+| Catálogo | `cat_components` | PC, MONITOR, KEYBOARD, MOUSE, UPS, SOFTWARE, NETWORK, OTHER (componente afectado; ver D-24) |
 | Catálogo | `cat_incident_statuses` | OPEN, CLOSED. `is_final` |
 | Catálogo | `cat_resolution_actions` | RESOLVED, REPLACEMENT_REQUIRED, REFERRED. `is_retirement_action` |
 | Catálogo | `cat_risk_levels` | HIGH, MEDIUM, LOW, con color y acción recomendada |
@@ -595,6 +595,8 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 | D-20 | Un equipo retirado no vuelve a activarse; al editar un equipo no se cambian su código, laboratorio ni tipo | El retiro es el final de la vida del equipo (un registro por error se anula con `is_active`, sección 18). El código `LAB-TIPO-NN` incluye el laboratorio y el tipo |
 | D-21 | El código de un equipo nuevo debe empezar con el laboratorio y el tipo elegidos (ej.: H103 + PC → `H103-PC-`) | Complementa RN-11: evita códigos con formato válido pero que no corresponden al equipo |
 | D-22 | Los códigos de los 32 tipos del catálogo y la carga de trabajo de los usuarios (incidencias registradas y cerradas) se copian del Figma en `mocks/` | Son datos de demostración; el backend calculará la carga de trabajo con las incidencias reales |
+| D-23 | En el Dashboard, la tabla "Incidencias abiertas" va antes de las columnas de riesgo (cambia el orden del Figma 2.0) | Retroalimentación de la tutora: lo primero que se atiende son las incidencias abiertas |
+| D-24 | Se agregan los componentes Software, Red / Internet y Otro a `cat_components`; con "Otro", la descripción debe tener al menos 20 caracteres | Retroalimentación de la tutora: hay fallas que no son de una pieza física (ej.: sistema operativo). Se mantiene una lista cerrada para poder contar por componente, y el detalle va en la descripción. Son filas del catálogo: el DBML no cambia |
 
 ---
 

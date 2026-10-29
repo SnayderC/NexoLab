@@ -70,6 +70,11 @@ export const components: AffectedComponent[] = [
   { ...record(3), code: 'KEYBOARD', name: 'Teclado' },
   { ...record(4), code: 'MOUSE', name: 'Mouse' },
   { ...record(5), code: 'UPS', name: 'UPS' },
+  // Retroalimentación de la tutora (D-24): fallas que no son de una pieza física.
+  // El detalle de lo ocurrido se escribe en la descripción.
+  { ...record(6), code: 'SOFTWARE', name: 'Software' },
+  { ...record(7), code: 'NETWORK', name: 'Red / Internet' },
+  { ...record(8), code: 'OTHER', name: 'Otro' },
 ]
 
 export const incidentStatuses: IncidentStatus[] = [
