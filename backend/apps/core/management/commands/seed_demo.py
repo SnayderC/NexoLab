@@ -6,7 +6,8 @@ Uso:  python manage.py seed_demo            (solo si la base está vacía)
 
 Carga catálogos, usuarios, laboratorios, equipos e incidencias con los mismos ids que usa el
 frontend en src/mocks/, para que las pantallas que aún no se conectan a la API sigan coincidiendo.
-Los resultados de riesgo se cargarán con el modelo K-Means (fase 6).
+Al final ejecuta la carga inicial del modelo K-Means (INITIAL_LOAD con el dataset de Kaggle), así el
+riesgo de cada equipo sale de las incidencias guardadas.
 La contraseña de los usuarios se lee de DEMO_PASSWORD (backend/.env); nunca está en el código.
 """
 
@@ -20,6 +21,7 @@ from django.utils.dateparse import parse_datetime
 from apps.incidents.models import Component, Incident, IncidentStatus, ResolutionAction
 from apps.infrastructure.models import Device, DeviceStatus, DeviceType, Laboratory
 from apps.risk.models import DeviceRiskResult, KmeansCentroid, KmeansRun, RiskLevel
+from apps.risk.services import RiskCalculationError, calculate_risk
 from apps.users.models import Role, User
 
 from ._demo_incidents import INCIDENTS
@@ -130,6 +132,15 @@ class Command(BaseCommand):
             f'{Device.objects.count()} equipos ({Device.objects.filter(retired_at__isnull=True).count()} activos), '
             f'{Incident.objects.count()} incidencias ({Incident.objects.filter(closed_at__isnull=True).count()} abiertas).'
         ))
+
+        # Fuera de la transacción: si el cálculo falla, los datos quedan cargados y se puede repetir
+        # con "python manage.py recalculate_risk --initial".
+        try:
+            run = calculate_risk(KmeansRun.TriggerType.INITIAL_LOAD)
+        except RiskCalculationError as error:
+            self.stderr.write(self.style.WARNING(f'No se pudo calcular el riesgo: {error}'))
+        else:
+            self.stdout.write(self.style.SUCCESS(f'Riesgo calculado (ejecución {run.id}).'))
 
     def _reset(self):
         # De las tablas hijas a las padres, por las llaves foráneas.

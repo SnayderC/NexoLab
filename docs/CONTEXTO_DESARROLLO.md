@@ -345,6 +345,34 @@ Inercia, coeficiente de silueta (de −1 a 1, más alto es mejor) e índice Davi
 - El origen (archivo, cantidad de registros y hash) queda en `hst_kmeans_runs.parameters`.
 - Pendiente de definir el mínimo de equipos con historial propio para dejar de usar el modelo inicial (sección 18).
 
+### Implementación (29/10/2026)
+
+Código en `backend/apps/risk/`: `kmeans.py` (algoritmo, sin base de datos), `kaggle.py` (lectura del dataset),
+`services.py` (cálculo completo y guardado) y el comando `recalculate_risk`.
+
+- **Dataset:** `backend/data/ITSM_data.csv` (ITSM de Kaggle, 46 606 registros de 2012 a 2014). Se usan solo las
+  filas `Category = incident` de equipos parecidos a los del laboratorio (`CI_Subcat`: Desktop, Laptop, Thin Client,
+  Monitor, Keyboard, UPS): 2 519 incidencias de 1 219 equipos, de los cuales **142 tienen 2 o más** y entrenan el
+  modelo. El equipo es `CI_Name` y la fecha de la falla es `Open_Time` (día primero). "Días desde la última falla" se
+  mide desde la última fecha del dataset (31/03/2014). Ver D-34.
+- **Algoritmo:** `StandardScaler` y `KMeans(n_clusters=3, random_state=42, n_init=10, max_iter=100)` de scikit-learn.
+- **Niveles (paso 4):** cada centroide recibe un puntaje con sus variables estandarizadas:
+  incidencias − días desde la última falla − intervalo promedio. El mayor es HIGH, el siguiente MEDIUM y el menor
+  LOW (D-35). Con Kaggle quedan: HIGH ≈ 47 incidencias, última falla hace 8 días, cada 7 días · MEDIUM ≈ 2, 126 y 16 ·
+  LOW ≈ 2, 74 y 65. Silueta 0,52 y Davies-Bouldin 0,75.
+- **Modelo de cada ejecución (D-33):** `INITIAL_LOAD` entrena con Kaggle y clasifica los equipos del Bloque H por el
+  centroide más cercano. Las demás ejecuciones entrenan con el historial propio si al menos
+  `RISK_MIN_OWN_HISTORY_DEVICES` equipos (30 por defecto) tienen 2 o más incidencias; si no, clasifican con el modelo
+  de la última carga inicial. El escalador y los centroides se guardan en `parameters.model` para repetir la
+  clasificación.
+- **Métricas:** en `INITIAL_LOAD` y con historial propio son las del entrenamiento; al reusar el modelo de Kaggle se
+  calculan sobre los equipos propios clasificados (`parameters.source.metrics_scope`) y quedan vacías si no se
+  pueden calcular (menos de 2 grupos con equipos).
+- **Errores:** si el cálculo falla, la ejecución queda `FAILED` con `error_message` y los resultados vigentes no cambian.
+- **Cómo se ejecuta:** `seed_demo` (al final, carga inicial), `python manage.py recalculate_risk [--initial]` y
+  `POST risk/recalculate` (administrador, disparador `MANUAL`). `INCIDENT_CLOSED` y `CATALOG_CHANGE` se conectan al
+  programar esas API (fases 4 y 5).
+
 ---
 
 ## 11. Sistema de diseño
@@ -470,7 +498,7 @@ Base: `/api/v1/`. JSON en `snake_case`. Todos los endpoints requieren autenticac
 | `GET device-types` 🔒 · `POST device-types` 🔒 · `PUT device-types/selection` 🔒 | Catálogo |
 | `GET users` 🔒 · `POST users` 🔒 · `PATCH users/{id}` 🔒 | Usuarios ✅ |
 | `POST users/{id}/reset-password` 🔒 · `POST users/{id}/activate` 🔒 · `POST users/{id}/deactivate` 🔒 | Usuarios ✅ |
-| `POST risk/recalculate` 🔒 | Recálculo manual |
+| `POST risk/recalculate` 🔒 | Recálculo manual ✅ |
 
 Los marcados con ✅ ya están programados y probados (detalle en `backend/README.md`).
 
@@ -538,8 +566,9 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 - [ ] Retiro automático, tiempo de atención y numeración, con pruebas.
 
 ### Fase 6 — Modelo K-Means
-- [ ] Servicio de cálculo de variables, agrupamiento y asignación de niveles.
-- [ ] Entrenamiento inicial con Kaggle y disparadores.
+- [x] Servicio de cálculo de variables, agrupamiento y asignación de niveles (sección 10, 18 pruebas en `apps/risk/tests.py`).
+- [x] Entrenamiento inicial con Kaggle, disparador `MANUAL` y comando `recalculate_risk`.
+- [ ] Disparadores `INCIDENT_CLOSED` y `CATALOG_CHANGE` (con las API de incidencias y catálogo).
 - [ ] Endpoint del dashboard e historial de riesgo, con pruebas.
 
 ### Fase 7 — Conectar frontend y backend
@@ -551,7 +580,7 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 
 ### Fase 8 — Cierre
 - [ ] Docker Compose con todos los servicios (por ahora solo la base de datos).
-- [ ] Comando de datos de demostración completo (faltan los resultados de K-Means).
+- [x] Comando de datos de demostración completo (`seed_demo` termina con la carga inicial de K-Means).
 - [ ] Documentación final y guion de la demostración.
 
 ---
@@ -611,8 +640,11 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 | D-28 | Comando `seed_demo` (`apps/core`) con la contraseña de `DEMO_PASSWORD` y los mismos identificadores que `frontend/src/mocks/`. Por ahora carga catálogos, usuarios, laboratorios y equipos; las incidencias y el riesgo se cargan en las fases 5 y 6 | Ninguna credencial en el código. Mismos identificadores para que las pantallas que aún usan datos de demostración coincidan con la API |
 | D-29 | `seed_demo` carga desde ya las 33 incidencias de demostración (`apps/core/management/commands/_demo_incidents.py`), adelantándose a la fase 5. Sus `created_at` y `updated_at` siguen a `opened_at` y `closed_at` | Sin ellas, la pantalla de laboratorios (API real) mostraría 0 incidencias abiertas mientras el resto (datos de demostración) muestra 7, y no se podría demostrar RN-10 |
 | D-30 | Conexión por módulos: cada `api.ts` pasa a la API real cuando su backend está listo, sin cambiar las pantallas. `GET laboratories` devuelve la composición como lista (`device_counts`) y el frontend arma el texto "PC 10 · Monitor 10". Mientras tanto, los responsables del formulario de laboratorio se leen de `mocks/users` (los ids coinciden con `seed_demo`) | Cambios pequeños y probados uno a uno. **Límite temporal:** un laboratorio creado con la API todavía no aparece en las pantallas que siguen con datos de demostración (equipos, incidencias, dashboard) hasta conectarlas |
-| D-31 | Los datos de demostración de `mocks/` se quitan de a poco, módulo por módulo, al conectar cada pantalla (no todos de una vez). Equipos, historial y dashboard se conectan cuando se decida cómo guardar el riesgo mientras no exista K-Means: (A) cargar los resultados del Figma en las tablas `hst_` con `seed_demo`, o (B) programar antes el K-Means real | Decisión del 29/10/2026: avanzar con lo que no depende del riesgo (usuarios, catálogo). **Pendiente:** elegir A o B |
+| D-31 | Los datos de demostración de `mocks/` se quitan de a poco, módulo por módulo, al conectar cada pantalla (no todos de una vez). Equipos, historial y dashboard se conectan cuando se decida cómo guardar el riesgo mientras no exista K-Means: (A) cargar los resultados del Figma en las tablas `hst_` con `seed_demo`, o (B) programar antes el K-Means real | Decisión del 29/10/2026: avanzar con lo que no depende del riesgo (usuarios, catálogo). **Resuelto:** se eligió B; el Figma es solo la referencia del diseño, los números salen de los datos reales |
 | D-32 | La carga de trabajo de Usuarios (registradas y cerradas) se calcula con `trx_incidents`, sin contar las anuladas. Con los datos de demostración, Carlos muestra 30 y 24 en lugar de 168 y 161 del Figma | Con la API ya no se copian los números del Figma (D-22); salen de las incidencias reales de la base |
+| D-33 | La carga inicial (`INITIAL_LOAD`) entrena con Kaggle. Las demás ejecuciones entrenan con el historial propio cuando al menos 30 equipos tienen 2 o más incidencias (`RISK_MIN_OWN_HISTORY_DEVICES`); mientras tanto clasifican con el modelo de Kaggle guardado | Con pocos equipos con historial, K-Means con k = 3 forma grupos sin sentido. 30 es un mínimo práctico para 3 grupos (unos 10 por grupo). **Pendiente:** confirmar el número con el tutor |
+| D-34 | Del dataset de Kaggle se usan solo incidencias (`Category = incident`) de Desktop, Laptop, Thin Client, Monitor, Keyboard y UPS, y los días se miden desde la última fecha del dataset | Son los equipos más parecidos a los del laboratorio; aplicaciones, servidores y redes fallan de otra forma. Medir desde la fecha actual daría más de 10 años para todos |
+| D-35 | El nivel de cada grupo se asigna con el puntaje incidencias − días desde la última falla − intervalo promedio, sobre los centroides estandarizados | Traduce la regla del paso 4 ("más incidencias y fallas más recientes y frecuentes es HIGH") a un cálculo reproducible, con las 3 variables con el mismo peso |
 
 ---
 
@@ -620,10 +652,11 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 
 - [x] **Método de autenticación** (fase 3). Resuelto en D-25: sesión de Django con cookie `httpOnly` y CSRF.
 - [ ] **Nombre de la restricción única de `hst_kmeans_centroids`** (D-26): aprobar el cambio en el DBML.
-- [ ] **Riesgo mientras no exista K-Means** (D-31): opción A o B.
+- [x] **Riesgo mientras no exista K-Means** (D-31): se eligió B, el K-Means real.
 - [ ] **Confirmar D-06** (sin Celery ni Redis).
 - [ ] **Inventario real** de los equipos del Bloque H (código, laboratorio y tipo) para el comando de carga. Si no existe, se usan datos de demostración.
-- [ ] **Mínimo de equipos con historial** para dejar de usar el modelo inicial de Kaggle, y revisar que el CSV filtrado permita calcular las 3 variables.
+- [x] Revisar que el CSV filtrado de Kaggle permita calcular las 3 variables: sí, 142 equipos con 2 o más incidencias (sección 10).
+- [ ] **Confirmar con el tutor el mínimo de equipos con historial** para dejar de usar el modelo de Kaggle. Hoy es 30 (`RISK_MIN_OWN_HISTORY_DEVICES`, D-33).
 - [ ] **Acciones de anulación en la interfaz:** "Eliminar equipo" y "Anular incidencia" (solo administrador) para usar `is_active`. Aún no están en el Figma.
 - [ ] **Pantalla de reportes:** consultar con el tutor si se agrega (no requiere cambios en la BD).
 

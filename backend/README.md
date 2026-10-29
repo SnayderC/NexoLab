@@ -7,6 +7,7 @@ La puesta en marcha completa está en el [README de la raíz](../README.md).
 
 ```
 backend/
+├── data/                   # ITSM_data.csv: dataset de Kaggle para la carga inicial de K-Means
 ├── config/                 # settings.py (lee .env) y urls.py (prefijo /api/v1/)
 └── apps/
     ├── core/               # BaseModel (is_active, created_at, updated_at) y el comando seed_demo
@@ -30,6 +31,7 @@ Además de las 14 tablas del modelo, Django crea sus tablas internas (`django_se
 | `DEMO_PASSWORD` | Contraseña de los usuarios que crea `seed_demo` |
 | `ALLOWED_HOSTS` | Opcional. Por defecto `localhost,127.0.0.1` |
 | `CSRF_TRUSTED_ORIGINS` | Opcional. Por defecto `http://localhost:5173` |
+| `RISK_MIN_OWN_HISTORY_DEVICES` | Opcional. Equipos con historial propio para dejar de usar el modelo de Kaggle. Por defecto 30 (D-33) |
 
 ## Datos de demostración
 
@@ -39,8 +41,20 @@ Además de las 14 tablas del modelo, Django crea sus tablas internas (`django_se
 ```
 
 Carga los catálogos, los 3 usuarios, los 5 laboratorios, los 145 equipos (142 activos y 3 retirados) y
-las 33 incidencias (7 abiertas), con los mismos identificadores que `frontend/src/mocks/`. Los resultados
-de K-Means se cargarán cuando se programe el modelo (fase 6).
+las 33 incidencias (7 abiertas), con los mismos identificadores que `frontend/src/mocks/`. Al final ejecuta
+la carga inicial de K-Means, así el riesgo de cada equipo sale de las incidencias guardadas.
+
+## Modelo de riesgo (K-Means)
+
+```bash
+.venv/bin/python manage.py recalculate_risk --initial  # carga inicial: entrena con data/ITSM_data.csv (Kaggle)
+.venv/bin/python manage.py recalculate_risk            # recálculo manual con los datos actuales
+```
+
+El código está en `apps/risk/`: `kmeans.py` (variables, entrenamiento y niveles), `kaggle.py` (lectura y filtro del
+dataset) y `services.py` (elige el modelo y guarda la ejecución, los centroides y un resultado por equipo en una sola
+transacción). Cada ejecución queda en `hst_kmeans_runs` con sus métricas, el origen de los datos y el modelo usado.
+El detalle está en la sección 10 de `docs/CONTEXTO_DESARROLLO.md`.
 
 ## Endpoints disponibles
 
@@ -58,6 +72,7 @@ Base: `/api/v1/`. Autenticación por sesión de Django (cookie `sessionid`, `htt
 | `PATCH users/{id}` | Administrador | 200 · 400. No cambia la contraseña |
 | `POST users/{id}/activate` · `deactivate` | Administrador | 200 · 409 `{code: "self_deactivation"}` si es la propia cuenta |
 | `POST users/{id}/reset-password` | Administrador | 204 · 400 con los mensajes de `new_password` |
+| `POST risk/recalculate` | Administrador | 200 con la ejecución y los equipos por nivel · 409 `{code: "risk_failed"}` si el cálculo falla |
 | `GET laboratories` | Con sesión | 200 con cada laboratorio, su responsable, equipos activos, composición por tipo (`device_counts`) e incidencias abiertas |
 | `POST laboratories` | Administrador | 201 con el laboratorio · 400 con los mensajes por campo |
 | `PATCH laboratories/{id}` | Administrador | 200 · 400 · 409 si se desactiva con incidencias abiertas |
@@ -95,3 +110,4 @@ Toda petición que no sea `GET` debe enviar la cabecera `X-CSRFToken` con el val
 - `apps/users/tests.py` (25): login, CSRF, sesión, cierre de sesión, cambio de contraseña, permiso de administrador
   y administración de usuarios.
 - `apps/infrastructure/tests.py` (13): laboratorios, sus validaciones, RN-06 y RN-10.
+- `apps/risk/tests.py` (18): variables, algoritmo, RN-23, carga inicial con Kaggle, reuso del modelo y recálculo.

@@ -15,6 +15,7 @@ env = environ.Env(
     DEBUG=(bool, False),
     ALLOWED_HOSTS=(list, ['localhost', '127.0.0.1']),
     CSRF_TRUSTED_ORIGINS=(list, ['http://localhost:5173']),
+    RISK_MIN_OWN_HISTORY_DEVICES=(int, 30),
 )
 environ.Env.read_env(BASE_DIR / '.env')
 
@@ -102,3 +103,6 @@ REST_FRAMEWORK = {
     'DEFAULT_PARSER_CLASSES': ['rest_framework.parsers.JSONParser'],
     'UNAUTHENTICATED_USER': None,
 }
+
+# K-Means (sección 10, D-33): equipos con historial propio necesarios para dejar de usar el modelo de Kaggle.
+RISK_MIN_OWN_HISTORY_DEVICES = env('RISK_MIN_OWN_HISTORY_DEVICES')
