@@ -11,6 +11,7 @@ import IncidentCreatePage from '../features/incidents/pages/IncidentCreatePage'
 import IncidentListPage from '../features/incidents/pages/IncidentListPage'
 import LaboratoryListPage from '../features/laboratories/pages/LaboratoryListPage'
 import ProfilePage from '../features/profile/pages/ProfilePage'
+import ReportsPage from '../features/reports/pages/ReportsPage'
 import UserListPage from '../features/users/pages/UserListPage'
 
 // Rutas de la sección 12 de docs/CONTEXTO_DESARROLLO.md.
@@ -36,6 +37,7 @@ export const router = createBrowserRouter([
         element: <DeviceHistoryPage />,
         handle: { title: 'Historial del equipo' },
       },
+      { path: 'reportes', element: <ReportsPage />, handle: { title: 'Reportes' } },
       { path: 'perfil', element: <ProfilePage />, handle: { title: 'Mi perfil' } },
       {
         path: 'admin',

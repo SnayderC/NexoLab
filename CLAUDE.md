@@ -12,7 +12,7 @@ Antes de cada tarea, consulta las secciones relevantes de `docs/CONTEXTO_DESARRO
 
 ## Estado actual
 - Fases 0 a 7 terminadas: todas las pantallas (Figma 01 a 06) usan la API real; `src/mocks/` ya no existe.
-- Backend: autenticación, administración, incidencias y modelo K-Means (con Kaggle), con 84 pruebas.
+- Backend: autenticación, administración, incidencias, reportes y modelo K-Means (con Kaggle), con 88 pruebas.
 - Los datos de demostración se cargan en la base con `python manage.py seed_demo`.
 - Pendiente: fase 8 (Docker Compose completo, documentación final) y lo de la sección 18. Cómo arrancar todo: `README.md`.
 

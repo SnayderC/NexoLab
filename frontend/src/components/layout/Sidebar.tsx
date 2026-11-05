@@ -1,5 +1,6 @@
 import {
   Activity,
+  ChartColumn,
   Building2,
   CirclePlus,
   ClipboardList,
@@ -15,6 +16,7 @@ const mainLinks = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/incidencias', label: 'Incidencias', icon: ClipboardList },
   { to: '/incidencias/nueva', label: 'Registrar incidencia', icon: CirclePlus },
+  { to: '/reportes', label: 'Reportes', icon: ChartColumn },
 ]
 
 const adminLinks = [

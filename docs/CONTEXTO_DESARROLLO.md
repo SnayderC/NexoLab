@@ -470,6 +470,7 @@ Referencia visual: archivo de Figma "Nexolab — Prototipo 1.0" (53 frames). Dat
 | Equipos | `/admin/equipos` | Admin | 05 · Administración | `mst_devices` |
 | Catálogo de equipos | `/admin/catalogo` | Admin | 05 · Administración | `cat_device_types` |
 | Usuarios | `/admin/usuarios` | Admin | 05 · Administración | `mst_users`, `cat_roles` |
+| Reportes | `/reportes` | Ambos | No está en el Figma (D-40) | `trx_incidents`, `mst_devices`, `hst_device_risk_results` |
 | Mi perfil | `/perfil` | Ambos | 06 · Perfil | `mst_users` |
 | Acceso restringido | (cualquier ruta `/admin` para técnicos) | Técnico | 05 · Administración | — |
 
@@ -499,6 +500,7 @@ Base: `/api/v1/`. JSON en `snake_case`. Todos los endpoints requieren autenticac
 | `GET users` 🔒 · `POST users` 🔒 · `PATCH users/{id}` 🔒 | Usuarios ✅ |
 | `POST users/{id}/reset-password` 🔒 · `POST users/{id}/activate` 🔒 · `POST users/{id}/deactivate` 🔒 | Usuarios ✅ |
 | `POST risk/recalculate` 🔒 | Recálculo manual ✅ |
+| `GET reports/summary` | Reportes de un periodo, por laboratorio (D-40) ✅ |
 
 Los marcados con ✅ ya están programados y probados (detalle en `backend/README.md`).
 
@@ -564,7 +566,8 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 
 ### Fase 5 — API de incidencias
 - [x] Registrar (RN-13 a RN-16, D-24), listar con filtros, detalle, cerrar (RN-17, RN-21) y anular (RN-22, solo API).
-- [x] Retiro automático (RN-19), tiempo de atención (RN-18) y numeración (RN-14), con 18 pruebas en `apps/incidents/tests.py`.
+- [x] Retiro automático (RN-19), tiempo de atención (RN-18) y numeración (RN-14), con pruebas en `apps/incidents/tests.py`.
+- [x] Pantalla Reportes con `GET reports/summary` (D-40), con 3 pruebas.
 
 ### Fase 6 — Modelo K-Means
 - [x] Servicio de cálculo de variables, agrupamiento y asignación de niveles (sección 10, 18 pruebas en `apps/risk/tests.py`).
@@ -651,6 +654,7 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 | D-37 | El código de un tipo de equipo tiene de 2 a 5 letras (antes: hasta 10 letras y números) | Es parte del código del equipo (`H103-PC-01`, RN-11). Un tipo como "ABC123" nunca podría usarse para crear equipos |
 | D-38 | Se eliminó `frontend/src/mocks/` y la hora de demostración: todo sale de la API y la hora es la real. Reemplaza a D-16, D-17, D-18 y D-22 y a los límites temporales de D-30 y D-36. Incidencias: la URL usa el número (`incidents/INC-2026-0001`); la numeración usa un candado de PostgreSQL para no repetir números; al cerrar, el riesgo se recalcula después de confirmar (si el modelo falla, el cierre no se deshace y la ejecución queda FAILED); `POST incidents/{número}/void` existe solo en la API (falta su botón, sección 18). El catálogo recalcula el riesgo al guardar la selección | Pedido del 29/10/2026: trabajar solo con datos reales. El número es lo que ve y busca el usuario. Un fallo del modelo no debe impedir registrar el trabajo del técnico |
 | D-39 | Botón "Anular incidencia" (RN-22) solo para el administrador, abajo a la izquierda de los modales "Cerrar incidencia" y "Detalle de incidencia", con confirmación. Usa el botón y el diálogo de peligro de "Retirar equipo" (Figma 5.8). Al anular, el backend recalcula el riesgo con el disparador `MANUAL` (lo pidió el administrador) | No está en el Figma; se diseñó con los componentes y colores existentes por pedido del autor. Una incidencia anulada cambia las variables del modelo, así que el riesgo debe actualizarse |
+| D-40 | Pantalla "Reportes" (`/reportes`) para técnicos y administradores: periodo (por defecto, los últimos 30 días) y laboratorio; indicadores (registradas, cerradas, tiempo promedio de atención y equipos retirados en el periodo), barras por laboratorio, componente y prioridad, atención por técnico y los 10 equipos con más incidencias con su riesgo actual. Una incidencia cuenta como registrada si su falla ocurrió en el periodo y como cerrada si se cerró en el periodo; las anuladas no cuentan. Barras hechas con los tokens existentes, sin librerías nuevas. Sin exportar a PDF o Excel | Pedido del autor (05/11/2026). No está en el Figma: usa sus tarjetas, tablas y colores. La exportación sigue fuera de alcance (sección 19). Recharts (sección 4) no hizo falta |
 
 ---
 
@@ -665,7 +669,7 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 - [x] **Mínimo de equipos con historial** para dejar de usar el modelo de Kaggle: 30, configurable (D-33).
 - [x] **Anular incidencia** en la interfaz (D-39).
 - [ ] **Eliminar equipo** (equipo creado por error, `is_active = false`): falta decidir si se agrega.
-- [ ] **Pantalla de reportes:** consultar con el tutor si se agrega (no requiere cambios en la BD).
+- [x] **Pantalla de reportes** (D-40), sin cambios en la BD. Pendiente: confirmar con el tutor su contenido.
 
 ---
 

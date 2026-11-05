@@ -243,3 +243,44 @@ class CatalogTests(IncidentTestCase):
         self.client.force_authenticate(self.technician)
         self.assertEqual(self.client.put(reverse('device-type-selection'), {'selected_ids': [self.pc.id]},
                                          format='json').status_code, status.HTTP_403_FORBIDDEN)
+
+
+class ReportTests(IncidentTestCase):
+    """Pantalla Reportes (D-40): conteos del periodo, sin las anuladas."""
+
+    def create(self, days_ago, **fields):
+        opened = timezone.now() - timedelta(days=days_ago)
+        data = dict(device=self.device, component=self.pc_component, incident_status=self.open,
+                    reported_by=self.technician, priority='HIGH', description='Falla de prueba.', opened_at=opened)
+        number = f'INC-T-{Incident.objects.count() + 1:04d}'
+        return Incident.objects.create(incident_number=number, **{**data, **fields})
+
+    def test_resumen_del_periodo(self):
+        self.create(2, closed_at=timezone.now() - timedelta(days=1), closed_by=self.admin, resolution_time_minutes=40)
+        self.create(5, component=self.other, priority='LOW')
+        self.create(3, is_active=False)  # anulada
+        self.create(60)  # fuera del periodo por defecto (30 días)
+
+        data = self.client.get(reverse('report-summary')).data
+        self.assertEqual(data['indicators']['registered_count'], 2)
+        self.assertEqual(data['indicators']['closed_count'], 1)
+        self.assertEqual(data['indicators']['avg_resolution_minutes'], 40)
+        self.assertEqual(data['by_laboratory'][0], {'id': self.lab.id, 'label': 'H101', 'count': 2})
+        self.assertEqual({row['label']: row['count'] for row in data['by_component']}, {'PC': 1, 'Otro': 1})
+        self.assertEqual([row['count'] for row in data['by_priority']], [1, 0, 1])
+        people = {row['name']: (row['registered_count'], row['closed_count']) for row in data['by_technician']}
+        self.assertEqual(people, {'Carlos Mendoza': (2, 0), 'Andrea V': (0, 1)})
+        self.assertEqual(data['top_devices'][0]['code'], 'H101-PC-01')
+        self.assertEqual(data['top_devices'][0]['incident_count'], 2)
+
+    def test_periodo_y_laboratorio_elegidos(self):
+        self.create(60)
+        date_from = timezone.localdate() - timedelta(days=90)
+        data = self.client.get(reverse('report-summary'), {'from': date_from.isoformat(),
+                                                           'laboratory_id': self.lab.id}).data
+        self.assertEqual(data['indicators']['registered_count'], 1)
+        self.assertEqual([row['label'] for row in data['by_laboratory']], ['H101'])
+
+    def test_rango_invertido(self):
+        response = self.client.get(reverse('report-summary'), {'from': '2026-10-10', 'to': '2026-10-01'})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

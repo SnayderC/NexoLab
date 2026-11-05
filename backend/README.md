@@ -81,6 +81,7 @@ Base: `/api/v1/`. Autenticación por sesión de Django (cookie `sessionid`, `htt
 | `GET incidents/{número}` | Con sesión | 200 · 404 (las anuladas no se muestran) |
 | `POST incidents/{número}/close` | Con sesión | 200 con `retired_device_code` (RN-19) · 400 (RN-17) · 409 ya cerrada (RN-21). Recalcula el riesgo (`INCIDENT_CLOSED`) |
 | `POST incidents/{número}/void` | Administrador | 204 (RN-22). Recalcula el riesgo (`MANUAL`, D-39) |
+| `GET reports/summary` | Con sesión | 200 con indicadores, conteos por laboratorio, componente, prioridad y técnico, y los 10 equipos con más incidencias; filtros `from`, `to` (por defecto, los últimos 30 días) y `laboratory_id` · 400 rango invertido |
 | `GET devices/eligible` | Con sesión | 200 con los equipos que admiten incidencias (RN-13), por `laboratory_id` o `code` |
 | `GET devices` | Con sesión | 200 `{items, total}` con riesgo vigente; filtros `search`, `laboratory_id`, `device_type_id`, `status`, `risk_level` y `page` (10 por página) |
 | `POST devices` | Administrador | 201 · 400 (formato RN-11, prefijo D-21, duplicado, laboratorio inactivo, tipo no seleccionado) |
@@ -133,4 +134,4 @@ Toda petición que no sea `GET` debe enviar la cabecera `X-CSRFToken` con el val
   y administración de usuarios.
 - `apps/infrastructure/tests.py` (21): laboratorios (RN-10) y equipos (RN-07, RN-11, RN-12, D-21), con RN-06.
 - `apps/risk/tests.py` (20): variables, algoritmo, RN-23, carga inicial con Kaggle, reuso del modelo, recálculo y dashboard.
-- `apps/incidents/tests.py` (18): registrar, listar, cerrar, retiro, numeración, recálculo al cerrar, anular y catálogo de tipos.
+- `apps/incidents/tests.py` (22): registrar, listar, cerrar, retiro, numeración, recálculo al cerrar, anular, catálogo de tipos y reportes.

@@ -1,9 +1,10 @@
 from django.urls import path
 
-from . import views
+from . import reports, views
 
 urlpatterns = [
     path('incidents', views.IncidentListView.as_view(), name='incident-list'),
+    path('reports/summary', reports.ReportSummaryView.as_view(), name='report-summary'),
     path('incidents/<str:number>', views.IncidentDetailView.as_view(), name='incident-detail'),
     path('incidents/<str:number>/close', views.IncidentCloseView.as_view(), name='incident-close'),
     path('incidents/<str:number>/void', views.IncidentVoidView.as_view(), name='incident-void'),
