@@ -152,20 +152,22 @@ VS Code, Git y GitHub, Docker Desktop, GitHub Copilot (necesario para conectar F
 
 ```
 nexolab/
-├── .github/
-│   └── copilot-instructions.md   # resumen corto de este documento para Copilot
 ├── docs/
 │   ├── CONTEXTO_DESARROLLO.md    # este documento
+│   ├── GUIA_DEL_PROYECTO.md      # explicación del proyecto y glosario en español
+│   ├── GUION_DEMOSTRACION.md     # guion para presentar el sistema
 │   ├── NEXOLAB_BD_v4.dbml        # modelo de datos aprobado
 │   └── PROMPT_FIGMA_MAKE_NEXOLAB.md  # datos de demostración de referencia
-├── docker-compose.yml
+├── docker-compose.yml            # base de datos; con --profile app, también backend y frontend (D-41)
 ├── .env.example
 ├── .gitignore
 ├── README.md
 ├── backend/
 │   ├── manage.py
 │   ├── requirements.txt
+│   ├── Dockerfile
 │   ├── .env.example
+│   ├── data/                     # ITSM_data.csv: dataset de Kaggle (sección 10)
 │   ├── config/                   # settings.py, urls.py
 │   └── apps/
 │       ├── core/                 # BaseModel y utilidades comunes
@@ -191,7 +193,8 @@ nexolab/
         │   ├── laboratories/
         │   ├── catalog/
         │   ├── users/
-        │   └── profile/
+        │   ├── profile/
+        │   └── reports/          # pantalla Reportes (D-40)
         ├── types/                # tipos de TypeScript que reflejan la BD
         └── lib/                  # cliente de API, formato de fechas, utilidades
 ```
@@ -600,7 +603,7 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 ### Fase 8 — Cierre
 - [x] Docker Compose con todos los servicios: `docker compose --profile app up -d` (D-41).
 - [x] Comando de datos de demostración completo (`seed_demo` termina con la carga inicial de K-Means).
-- [ ] Documentación final y guion de la demostración.
+- [x] Documentación final: `docs/GUIA_DEL_PROYECTO.md` (explicación y glosario en español) y `docs/GUION_DEMOSTRACION.md` (05/11/2026).
 
 ---
 
@@ -681,7 +684,7 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 - [x] **Nombre de la restricción única de `hst_kmeans_centroids`** (D-26): el DBML se actualizó con el nombre corto.
 - [x] **Riesgo mientras no exista K-Means** (D-31): se eligió B, el K-Means real.
 - [ ] **Confirmar D-06** (sin Celery ni Redis).
-- [ ] **Inventario real** de los equipos del Bloque H (código, laboratorio y tipo) para el comando de carga. Si no existe, se usan datos de demostración.
+- [x] **Inventario del Bloque H:** descrito por el autor y cargado por `seed_demo` con un historial simulado (D-42).
 - [x] Revisar que el CSV filtrado de Kaggle permita calcular las 3 variables: sí, 142 equipos con 2 o más incidencias (sección 10).
 - [x] **Mínimo de equipos con historial** para dejar de usar el modelo de Kaggle: 30, configurable (D-33).
 - [x] **Anular incidencia** en la interfaz (D-39).

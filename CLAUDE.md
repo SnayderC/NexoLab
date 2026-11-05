@@ -15,7 +15,8 @@ Antes de cada tarea, consulta las secciones relevantes de `docs/CONTEXTO_DESARRO
 - Backend: autenticación, administración, incidencias, reportes y modelo K-Means (con Kaggle), con 90 pruebas.
 - Los datos de demostración (Bloque H de ejemplo: 10 laboratorios, 432 equipos, 325 incidencias) se cargan con `python manage.py seed_demo` (D-42).
 - Docker Compose completo: `docker compose --profile app up -d` (D-41).
-- Pendiente: documentación final y guion (fase 8) y lo de la sección 18. Cómo arrancar todo: `README.md`.
+- Fase 8 terminada: guía en español (`docs/GUIA_DEL_PROYECTO.md`) y guion (`docs/GUION_DEMOSTRACION.md`).
+- Pendiente: lo de la sección 18 de `docs/CONTEXTO_DESARROLLO.md`. Cómo arrancar todo: `README.md`.
 
 ## Stack
 - Frontend (`frontend/`): React 19 + TypeScript + Vite 8 + Tailwind 4 + React Router.

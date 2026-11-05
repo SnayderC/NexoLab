@@ -6,7 +6,9 @@ laboratorios del Bloque H. Proyecto de titulación, UNEMI.
 - `frontend/`: React 19 + TypeScript + Vite 8 + Tailwind 4 ([frontend/README.md](frontend/README.md)).
 - `backend/`: Django 5.2 LTS + Django REST Framework ([backend/README.md](backend/README.md)).
 - Base de datos: PostgreSQL 17 en Docker (`docker-compose.yml`).
-- Documentación del desarrollo: [docs/CONTEXTO_DESARROLLO.md](docs/CONTEXTO_DESARROLLO.md).
+- Explicación del proyecto en español (arquitectura y glosario): [docs/GUIA_DEL_PROYECTO.md](docs/GUIA_DEL_PROYECTO.md).
+- Guion para presentar el sistema: [docs/GUION_DEMOSTRACION.md](docs/GUION_DEMOSTRACION.md).
+- Documentación del desarrollo y decisiones: [docs/CONTEXTO_DESARROLLO.md](docs/CONTEXTO_DESARROLLO.md).
 
 ## Requisitos
 
@@ -96,7 +98,7 @@ Los crea `seed_demo`. Todos usan la contraseña definida en `DEMO_PASSWORD` (`ba
 | Todas las pantallas (dashboard, incidencias, reportes, equipos, laboratorios, catálogo, usuarios, perfil) | Conectadas a la API real |
 | Modelo K-Means (carga inicial con Kaggle; recálculo manual, al cerrar incidencias y al cambiar el catálogo) | Listo |
 | Docker Compose con base de datos, backend y frontend (perfil `app`) | Listo |
-| Documentación final y guion de la demostración (fase 8) | Pendiente |
+| Documentación final y guion de la demostración (fase 8) | Listo |
 
 El detalle de cada fase está en la sección 15 de `docs/CONTEXTO_DESARROLLO.md`.
 
