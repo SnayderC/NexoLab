@@ -293,7 +293,7 @@ Cada regla se aplica en el **backend**. El frontend puede validarlas antes para 
 - **RN-08** Al guardar cambios en el catálogo se recalcula el riesgo (disparador `CATALOG_CHANGE`).
 - **RN-09** Un nuevo tipo agregado al catálogo se crea con `is_selected = false`.
 - **RN-10** No se puede desactivar un laboratorio con incidencias abiertas.
-- **RN-11** Formato de código de equipo: `LAB-TIPO-NN` (ej. `H103-PC-03`). Es único.
+- **RN-11** Formato de código de equipo: `LAB-TIPO-NN` (ej. `H103-PC-03`, `H106A-PC-05`), con cualquier código de laboratorio y un número de 2 o 3 cifras (D-43). Es único.
 - **RN-12** Al retirar un equipo se llena `retired_at` y deja de aparecer en formularios y en el cálculo de riesgo. Su historial se conserva.
 
 ### Incidencias
@@ -510,7 +510,21 @@ Los marcados con ✅ ya están programados y probados (detalle en `backend/READM
 
 ## 14. Datos de demostración
 
-El archivo `docs/PROMPT_FIGMA_MAKE_NEXOLAB.md` (parte 3) contiene el conjunto de datos del prototipo. Desde el 29/10/2026 los datos de demostración viven en la base de datos: los carga `python manage.py seed_demo` (usuarios, 5 laboratorios, 145 equipos y 33 incidencias) y al final calcula el riesgo con K-Means. Los indicadores y el riesgo **se calculan** con esos datos, así que no coinciden con los números fijos del Figma (D-31, D-32).
+Los datos de demostración viven en la base de datos y los carga `python manage.py seed_demo` (D-42). Describen un Bloque H de ejemplo, definido por el autor el 05/11/2026; el sistema sirve para cualquier laboratorio de cómputo y el Bloque H es el caso de origen:
+
+| Laboratorios | Computadoras | Además, en cada laboratorio |
+|---|---|---|
+| H101, H102, H106A, H106B, H108, H109 | 30 PC de escritorio (monitor, teclado y mouse son parte de la PC) | 1 PC docente, 1 o 2 aires acondicionados, 1 o 2 televisores |
+| H103, H104 | 30 PC gamer, cada una con su UPS | Igual |
+| H105 | 30 todo en uno | Igual |
+| H107 | 60 PC de escritorio | Igual |
+
+- **Inventario:** 10 laboratorios y 432 equipos (429 en uso y 3 retirados con "Requiere reemplazo").
+- **Historial:** 325 incidencias de mayo a octubre de 2026 (8 abiertas a fines de octubre e inicios de noviembre). Unas 15 computadoras fallan seguido, unas 45 tienen 2 o 3 fallas y unas 55 una sola; los aires fallan más en los meses de calor; los televisores y las PCs docentes, poco. Carlos atiende la mayoría, Andrea algunas y Luis solo hasta agosto (su cuenta está desactivada).
+- **Riesgo:** una carga inicial con Kaggle (01/05/2026), un cálculo al cierre de cada mes y el de hoy. En mayo y junio se usa el modelo de Kaggle; desde fines de julio hay 30 equipos con historial y el modelo se entrena con los datos propios (D-33).
+- **Usuarios:** Andrea Villacís (administradora), Carlos Mendoza (técnico) y Luis Bravo (técnico inactivo), del prototipo.
+
+Los indicadores y el riesgo **se calculan** con estos datos, así que no coinciden con los números fijos del Figma (D-31, D-32).
 
 Valores del prototipo (referencia del diseño, no de los datos):
 
@@ -521,7 +535,7 @@ Valores del prototipo (referencia del diseño, no de los datos):
 - Incidencias: **205 en total** (7 abiertas, 198 cerradas).
 - "Hora actual" del prototipo: 17/10/2026 11:30.
 
-En la defensa se aclara que son **datos de demostración**, no datos reales del Bloque H.
+En la defensa se aclara que son **datos de demostración**: el inventario se basa en la descripción del Bloque H y las incidencias son simuladas.
 
 ---
 
@@ -584,7 +598,7 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 - [x] Probar los flujos principales con los dos roles en el navegador (29/10/2026).
 
 ### Fase 8 — Cierre
-- [ ] Docker Compose con todos los servicios (por ahora solo la base de datos).
+- [x] Docker Compose con todos los servicios: `docker compose --profile app up -d` (D-41).
 - [x] Comando de datos de demostración completo (`seed_demo` termina con la carga inicial de K-Means).
 - [ ] Documentación final y guion de la demostración.
 
@@ -642,8 +656,8 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 | D-25 | Autenticación con la sesión de Django: cookie `sessionid` `httpOnly` (8 horas) y protección CSRF. El frontend pide `GET auth/csrf`, lee la cookie `csrftoken` y la envía en la cabecera `X-CSRFToken`. En desarrollo, Vite reenvía `/api` a Django (`changeOrigin: false`), así que todo funciona en un solo origen y sin CORS. Sin sesión, la API responde 403 (no 401) | Más segura que un token JWT en `localStorage` (JavaScript no puede leer la cookie) y requiere menos código. DRF responde 403 con autenticación por sesión porque no hay cabecera `WWW-Authenticate`; el frontend trata 401 y 403 igual al pedir el usuario actual |
 | D-26 | La restricción única de `hst_kmeans_centroids` se llama `uq_hst_kmc_run_cluster` en lugar del nombre del DBML | Django limita los nombres de restricciones a 30 caracteres y el del DBML tiene 35. Las columnas y la regla son las mismas. **Resuelto (29/10/2026):** con la aprobación del autor, el DBML usa también el nombre corto |
 | D-27 | El backend se desarrolla con Python 3.14 | Es la versión instalada en el equipo de desarrollo y Django 5.2.18 la soporta (desde 5.2.8). El código no usa nada exclusivo de 3.14, así que 3.12 sigue funcionando |
-| D-28 | Comando `seed_demo` (`apps/core`) con la contraseña de `DEMO_PASSWORD` y los mismos identificadores que `frontend/src/mocks/`. Por ahora carga catálogos, usuarios, laboratorios y equipos; las incidencias y el riesgo se cargan en las fases 5 y 6 | Ninguna credencial en el código. Mismos identificadores para que las pantallas que aún usan datos de demostración coincidan con la API |
-| D-29 | `seed_demo` carga desde ya las 33 incidencias de demostración (`apps/core/management/commands/_demo_incidents.py`), adelantándose a la fase 5. Sus `created_at` y `updated_at` siguen a `opened_at` y `closed_at` | Sin ellas, la pantalla de laboratorios (API real) mostraría 0 incidencias abiertas mientras el resto (datos de demostración) muestra 7, y no se podría demostrar RN-10 |
+| D-28 | *(Actualizada por D-42)* Comando `seed_demo` (`apps/core`) con la contraseña de `DEMO_PASSWORD` y los mismos identificadores que `frontend/src/mocks/`. Por ahora carga catálogos, usuarios, laboratorios y equipos; las incidencias y el riesgo se cargan en las fases 5 y 6 | Ninguna credencial en el código. Mismos identificadores para que las pantallas que aún usan datos de demostración coincidan con la API |
+| D-29 | *(Reemplazada por D-42)* `seed_demo` carga desde ya las 33 incidencias de demostración (`apps/core/management/commands/_demo_incidents.py`), adelantándose a la fase 5. Sus `created_at` y `updated_at` siguen a `opened_at` y `closed_at` | Sin ellas, la pantalla de laboratorios (API real) mostraría 0 incidencias abiertas mientras el resto (datos de demostración) muestra 7, y no se podría demostrar RN-10 |
 | D-30 | Conexión por módulos: cada `api.ts` pasa a la API real cuando su backend está listo, sin cambiar las pantallas. `GET laboratories` devuelve la composición como lista (`device_counts`) y el frontend arma el texto "PC 10 · Monitor 10". Mientras tanto, los responsables del formulario de laboratorio se leen de `mocks/users` (los ids coinciden con `seed_demo`) | Cambios pequeños y probados uno a uno. **Límite temporal:** un laboratorio creado con la API todavía no aparece en las pantallas que siguen con datos de demostración (equipos, incidencias, dashboard) hasta conectarlas |
 | D-31 | Los datos de demostración de `mocks/` se quitan de a poco, módulo por módulo, al conectar cada pantalla (no todos de una vez). Equipos, historial y dashboard se conectan cuando se decida cómo guardar el riesgo mientras no exista K-Means: (A) cargar los resultados del Figma en las tablas `hst_` con `seed_demo`, o (B) programar antes el K-Means real | Decisión del 29/10/2026: avanzar con lo que no depende del riesgo (usuarios, catálogo). **Resuelto:** se eligió B; el Figma es solo la referencia del diseño, los números salen de los datos reales |
 | D-32 | La carga de trabajo de Usuarios (registradas y cerradas) se calcula con `trx_incidents`, sin contar las anuladas. Con los datos de demostración, Carlos muestra 30 y 24 en lugar de 168 y 161 del Figma | Con la API ya no se copian los números del Figma (D-22); salen de las incidencias reales de la base |
@@ -655,6 +669,9 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 | D-38 | Se eliminó `frontend/src/mocks/` y la hora de demostración: todo sale de la API y la hora es la real. Reemplaza a D-16, D-17, D-18 y D-22 y a los límites temporales de D-30 y D-36. Incidencias: la URL usa el número (`incidents/INC-2026-0001`); la numeración usa un candado de PostgreSQL para no repetir números; al cerrar, el riesgo se recalcula después de confirmar (si el modelo falla, el cierre no se deshace y la ejecución queda FAILED); `POST incidents/{número}/void` existe solo en la API (falta su botón, sección 18). El catálogo recalcula el riesgo al guardar la selección | Pedido del 29/10/2026: trabajar solo con datos reales. El número es lo que ve y busca el usuario. Un fallo del modelo no debe impedir registrar el trabajo del técnico |
 | D-39 | Botón "Anular incidencia" (RN-22) solo para el administrador, abajo a la izquierda de los modales "Cerrar incidencia" y "Detalle de incidencia", con confirmación. Usa el botón y el diálogo de peligro de "Retirar equipo" (Figma 5.8). Al anular, el backend recalcula el riesgo con el disparador `MANUAL` (lo pidió el administrador) | No está en el Figma; se diseñó con los componentes y colores existentes por pedido del autor. Una incidencia anulada cambia las variables del modelo, así que el riesgo debe actualizarse |
 | D-40 | Pantalla "Reportes" (`/reportes`) para técnicos y administradores: periodo (por defecto, los últimos 30 días) y laboratorio; indicadores (registradas, cerradas, tiempo promedio de atención y equipos retirados en el periodo), barras por laboratorio, componente y prioridad, atención por técnico y los 10 equipos con más incidencias con su riesgo actual. Una incidencia cuenta como registrada si su falla ocurrió en el periodo y como cerrada si se cerró en el periodo; las anuladas no cuentan. Barras hechas con los tokens existentes, sin librerías nuevas. Sin exportar a PDF o Excel | Pedido del autor (05/11/2026). No está en el Figma: usa sus tarjetas, tablas y colores. La exportación sigue fuera de alcance (sección 19). Recharts (sección 4) no hizo falta |
+| D-41 | Docker Compose con perfiles: `docker compose up -d` levanta solo PostgreSQL (como antes) y `docker compose --profile app up -d` agrega el backend (`backend/Dockerfile`, Python 3.14, aplica migraciones al arrancar) y el frontend (`frontend/Dockerfile`, Node 22, Vite). El código se monta en los contenedores para recargar los cambios. `DATABASE_URL` lo define Compose (host `db`, puerto 5432) y el proxy de Vite usa `API_PROXY_TARGET` (`http://backend:8000`). `seed_demo` no corre al arrancar | Un solo comando para levantar el sistema completo (fase 8) sin romper la forma de trabajar anterior. Cargar los datos de demostración en cada arranque borraría los datos que el usuario registra |
+| D-42 | Nuevos datos de demostración (`apps/core/management/commands/_demo_history.py`): el Bloque H descrito por el autor (tabla de la sección 14) y un historial simulado de mayo a octubre de 2026, generado con una semilla fija (siempre el mismo resultado). Se agregan los tipos "Aire acondicionado" (`AC`) y "PC docente" (`DOC`); "Monitor" queda sin seleccionar porque el monitor es parte de la PC (D-02): si falla, se registra en la PC con el componente "Monitor" y se cierra como "Resuelto" (no "Requiere reemplazo", que retira la PC completa). `calculate_risk` acepta `as_of` para calcular como en una fecha pasada; `seed_demo` lo usa para la carga inicial y un cálculo al cierre de cada mes, así el gráfico "Evolución del riesgo" tiene historia. Los aires y televisores usan el componente "Otro" | Pedido del autor: tener un historial creado con sus datos. Con más de 30 equipos con historial se demuestra el entrenamiento con datos propios (D-33). La semilla fija hace que la demostración sea repetible |
+| D-43 | RN-11 acepta cualquier código de laboratorio (`H106A`, `LAB-2`) y números de 2 o 3 cifras: `^[A-Z0-9][A-Z0-9-]{0,9}-[A-Z]{2,5}-\d{2,3}$`. D-21 sigue exigiendo que el código empiece con el laboratorio y el tipo elegidos | El Bloque H tiene H106A y H106B, y el sistema apunta a laboratorios de cómputo en general, algunos con más de 99 equipos |
 
 ---
 

@@ -10,8 +10,9 @@ export default defineConfig({
     // y la de CSRF funcionan sin configurar CORS (decisión D-25).
     // changeOrigin: false conserva el Host del navegador, para que la verificación de origen
     // de la protección CSRF de Django vea la misma dirección que envía el navegador.
+    // API_PROXY_TARGET lo define docker compose (http://backend:8000); fuera de Docker, Django corre en el equipo.
     proxy: {
-      '/api': { target: 'http://localhost:8000', changeOrigin: false },
+      '/api': { target: process.env.API_PROXY_TARGET ?? 'http://localhost:8000', changeOrigin: false },
     },
   },
 })

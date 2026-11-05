@@ -6,8 +6,7 @@ import RiskBadge from '../../../components/ui/RiskBadge'
 import Table, { type TableColumn } from '../../../components/ui/Table'
 import TableSkeleton from '../../../components/ui/TableSkeleton'
 import { toDateInputValue } from '../../../lib/formatDate'
-import { formatDecimal } from '../../../lib/formatNumber'
-import { formatDuration } from '../../../lib/formatRelative'
+import { formatAverageDuration, formatDuration } from '../../../lib/formatRelative'
 import type { Priority } from '../../../types/incident'
 import { KpiRowSkeleton } from '../../dashboard/components/DashboardSkeleton'
 import KpiCard from '../../dashboard/components/KpiCard'
@@ -25,15 +24,8 @@ const priorityBars: Record<Priority, { label: string; barClassName: string }> = 
   LOW: { label: 'Baja', barClassName: 'bg-risk-low' },
 }
 
-const MINUTES_PER_DAY = 24 * 60
-
 const minutesOrDash = (minutes: number | null) => (minutes === null ? '—' : formatDuration(minutes))
 
-// En la tarjeta, un promedio de más de un día se muestra en días ("1,5 días") para que quepa.
-function formatAverage(minutes: number | null): string {
-  if (minutes === null) return '—'
-  return minutes >= MINUTES_PER_DAY ? `${formatDecimal(minutes / MINUTES_PER_DAY)} días` : formatDuration(minutes)
-}
 
 const technicianColumns: TableColumn<TechnicianRow>[] = [
   { key: 'name', header: 'Técnico', render: (row) => row.name },
@@ -118,7 +110,11 @@ function ReportsPage() {
               icon={Clock}
               tone="warning"
               title="Tiempo promedio de atención"
-              value={formatAverage(report.indicators.avg_resolution_minutes)}
+              value={
+                report.indicators.avg_resolution_minutes === null
+                  ? '—'
+                  : formatAverageDuration(report.indicators.avg_resolution_minutes)
+              }
               detail="De las cerradas en el periodo"
             />
             <KpiCard

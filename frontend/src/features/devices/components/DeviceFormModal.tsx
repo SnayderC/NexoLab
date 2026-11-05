@@ -19,7 +19,7 @@ const statusOptions = [
   { value: 'RETIRED', label: 'Retirado' },
 ]
 
-const FORMAT_MESSAGE = 'El código debe tener el formato LAB-TIPO-NN, por ejemplo H103-PC-13'
+const FORMAT_MESSAGE = 'El código debe tener el formato LAB-TIPO-NN, por ejemplo H103-PC-13 o H106A-PC-05'
 
 // RN-11: formato LAB-TIPO-NN y, además, que empiece con el laboratorio y el tipo elegidos (D-21).
 // El backend vuelve a validar las dos reglas.

@@ -54,3 +54,10 @@ export function formatDaysAgo(days: number): string {
 export function formatDays(days: number): string {
   return `${formatDecimal(days)} ${days === 1 ? 'día' : 'días'}`
 }
+
+// Promedio corto para las tarjetas de indicadores: "48 min", "3 h 20 min" o, desde un día, "1,5 días".
+export function formatAverageDuration(totalMinutes: number): string {
+  return totalMinutes >= MINUTES_PER_DAY
+    ? `${formatDecimal(totalMinutes / MINUTES_PER_DAY)} días`
+    : formatDuration(totalMinutes)
+}

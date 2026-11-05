@@ -228,6 +228,14 @@ class DeviceTests(LaboratoryTestCase):
             self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, code)
             self.assertIn(message, response.data['code'][0])
 
+    def test_d43_codigo_de_laboratorio_con_letra(self):
+        lab = Laboratory.objects.create(code='H106A', name='Lab 6A', station_count=30)
+        pc = DeviceType.objects.get(code='PC')
+        response = self.client.post(reverse('device-list'), {'code': 'h106a-pc-105', 'laboratory_id': lab.id,
+                                                             'device_type_id': pc.id}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(Device.objects.filter(code='H106A-PC-105').exists())
+
     def test_rn07_tipo_no_seleccionado_y_laboratorio_inactivo(self):
         printer = DeviceType.objects.create(code='IMP', name='Impresora', is_selected=False)
         self.h102.is_active = False

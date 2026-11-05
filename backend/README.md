@@ -40,9 +40,10 @@ Además de las 14 tablas del modelo, Django crea sus tablas internas (`django_se
 .venv/bin/python manage.py seed_demo --reset  # borra los datos de las tablas del modelo y vuelve a cargarlos
 ```
 
-Carga los catálogos, los 3 usuarios, los 5 laboratorios, los 145 equipos (142 activos y 3 retirados) y
-las 33 incidencias (7 abiertas) del prototipo. Al final ejecuta
-la carga inicial de K-Means, así el riesgo de cada equipo sale de las incidencias guardadas.
+Carga los catálogos, los 3 usuarios del prototipo y un Bloque H de ejemplo (D-42): 10 laboratorios, 432 equipos
+(3 retirados) y 325 incidencias de mayo a octubre de 2026 (8 abiertas). El inventario y el historial están en
+`apps/core/management/commands/_demo_history.py` y se generan con una semilla fija, así que siempre salen iguales.
+Al final calcula el riesgo: la carga inicial con Kaggle, un cálculo al cierre de cada mes y el de hoy.
 
 ## Modelo de riesgo (K-Means)
 

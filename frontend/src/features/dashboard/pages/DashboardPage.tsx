@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router'
 import Button from '../../../components/ui/Button'
 import ErrorState from '../../../components/ui/ErrorState'
 import { useToast } from '../../../components/ui/toast/useToast'
+import { formatAverageDuration } from '../../../lib/formatRelative'
 import { useCurrentUser } from '../../auth/useCurrentUser'
 import { RiskCalculationError, type DashboardFilters as Filters } from '../api'
 import TableSkeleton from '../../../components/ui/TableSkeleton'
@@ -80,7 +81,7 @@ function DashboardPage() {
                   value={
                     summary.indicators.avg_resolution_minutes === null
                       ? '—'
-                      : `${summary.indicators.avg_resolution_minutes} min`
+                      : formatAverageDuration(summary.indicators.avg_resolution_minutes)
                   }
                   detail="Últimos 30 días"
                 />

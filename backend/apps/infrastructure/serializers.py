@@ -137,9 +137,11 @@ class DeviceTypeSelectionSerializer(serializers.Serializer):
         return ids
 
 
-# RN-11: formato LAB-TIPO-NN, por ejemplo H103-PC-13.
-DEVICE_CODE_PATTERN = re.compile(r'^[A-Z]\d{3}-[A-Z]{2,5}-\d{2}$')
-FORMAT_MESSAGE = 'El código debe tener el formato LAB-TIPO-NN, por ejemplo H103-PC-13'
+# RN-11 (D-43): formato LAB-TIPO-NN. LAB es el código del laboratorio, sea cual sea (H103, H106A, LAB-2);
+# TIPO, el código del tipo (2 a 5 letras), y NN, un número de 2 o 3 cifras. D-21 exige además que empiece
+# con el laboratorio y el tipo elegidos.
+DEVICE_CODE_PATTERN = re.compile(r'^[A-Z0-9][A-Z0-9-]{0,9}-[A-Z]{2,5}-\d{2,3}$')
+FORMAT_MESSAGE = 'El código debe tener el formato LAB-TIPO-NN, por ejemplo H103-PC-13 o H106A-PC-05'
 
 
 class DeviceCreateSerializer(serializers.ModelSerializer):

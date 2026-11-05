@@ -165,8 +165,9 @@ export type DeviceInput = {
 // El backend rechazó el código: formato inválido (RN-11), prefijo distinto (D-21) o duplicado.
 export class DeviceCodeError extends Error {}
 
-// RN-11: formato LAB-TIPO-NN, por ejemplo H103-PC-13. El backend aplica la misma regla.
-export const DEVICE_CODE_PATTERN = /^[A-Z]\d{3}-[A-Z]{2,5}-\d{2}$/
+// RN-11 (D-43): formato LAB-TIPO-NN con cualquier código de laboratorio (H103-PC-13, H106A-PC-05)
+// y un número de 2 o 3 cifras. El backend aplica la misma regla.
+export const DEVICE_CODE_PATTERN = /^[A-Z0-9][A-Z0-9-]{0,9}-[A-Z]{2,5}-\d{2,3}$/
 
 export function listDevices(filters: DeviceListFilters): Promise<{ items: DeviceListItem[]; total: number }> {
   const params = new URLSearchParams({ page: String(filters.page), status: filters.status })

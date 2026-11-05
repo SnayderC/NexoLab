@@ -24,9 +24,12 @@ const strokeClasses: Record<RiskLevelCode, string> = {
 }
 
 const monthFormatter = new Intl.DateTimeFormat('es-EC', { month: 'long', timeZone: 'UTC' })
+const shortMonthFormatter = new Intl.DateTimeFormat('es-EC', { month: 'short', timeZone: 'UTC' })
+// Desde este número de meses, los nombres largos ("Septiembre") ya no caben debajo del gráfico.
+const SHORT_LABELS_FROM = 6
 
-function monthName(month: string): string {
-  const name = monthFormatter.format(new Date(`${month}-01T00:00:00Z`))
+function monthName(month: string, short = false): string {
+  const name = (short ? shortMonthFormatter : monthFormatter).format(new Date(`${month}-01T00:00:00Z`))
   return name.charAt(0).toUpperCase() + name.slice(1)
 }
 
@@ -90,7 +93,7 @@ function RiskEvolutionChart({ history }: RiskEvolutionChartProps) {
           <div className="flex gap-2 pl-25.5 text-text-muted">
             {history.map((point) => (
               <div key={point.month} className="flex min-w-0 flex-1 flex-col gap-1">
-                <p className="text-xs">{monthName(point.month)}</p>
+                <p className="text-xs">{monthName(point.month, history.length >= SHORT_LABELS_FROM)}</p>
                 {point.classification_method === 'INSUFFICIENT_HISTORY' && (
                   <p className="text-2xs">Sin historial suficiente</p>
                 )}

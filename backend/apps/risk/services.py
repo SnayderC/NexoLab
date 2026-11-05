@@ -11,10 +11,12 @@ Qué modelo se usa en cada ejecución (D-33):
 
 import time
 from collections import defaultdict
+from datetime import timedelta
 from decimal import Decimal
 
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.incidents.models import Incident
@@ -34,17 +36,22 @@ def _decimal(value, places):
     return None if value is None else Decimal(str(round(float(value), places)))
 
 
-def eligible_devices():
-    """Paso 1: equipos vigentes, con un estado que entra al cálculo y de un tipo seleccionado (RN-07, RN-12)."""
-    return Device.objects.filter(
-        is_active=True, device_status__is_included_in_kmeans=True, device_type__is_selected=True
-    ).order_by('id')
+def eligible_devices(as_of=None):
+    """Paso 1: equipos vigentes, con un estado que entra al cálculo y de un tipo seleccionado (RN-07, RN-12).
+    Con as_of (historial de demostración, D-42) cuenta como vigente el que todavía no se retiraba en esa fecha."""
+    devices = Device.objects.filter(is_active=True, device_type__is_selected=True)
+    if as_of is None:
+        devices = devices.filter(device_status__is_included_in_kmeans=True)
+    else:
+        devices = devices.filter(Q(retired_at__isnull=True) | Q(retired_at__gt=as_of))
+    return devices.order_by('id')
 
 
 def device_features(device_ids, now):
     """Las 3 variables de cada equipo, con sus incidencias válidas (las anuladas no cuentan, RN-22)."""
     opened = defaultdict(list)
-    incidents = Incident.objects.filter(device_id__in=device_ids, is_active=True)
+    # Solo las fallas ocurridas hasta el momento del cálculo.
+    incidents = Incident.objects.filter(device_id__in=device_ids, is_active=True, opened_at__lte=now)
     for device_id, opened_at in incidents.values_list('device_id', 'opened_at'):
         opened[device_id].append(opened_at)
     return {device_id: kmeans.compute_features(opened[device_id], now) for device_id in device_ids}
@@ -85,10 +92,11 @@ def _build_model(trigger_type, own_rows):
     return model, clustering, clustering, source
 
 
-def calculate_risk(trigger_type, triggered_by=None, incident=None) -> KmeansRun:
-    """Ejecuta el cálculo completo y guarda la ejecución, sus centroides y un resultado por equipo."""
+def calculate_risk(trigger_type, triggered_by=None, incident=None, as_of=None) -> KmeansRun:
+    """Ejecuta el cálculo completo y guarda la ejecución, sus centroides y un resultado por equipo.
+    as_of calcula como si fuera esa fecha pasada; solo lo usa seed_demo para armar la evolución mensual (D-42)."""
     started = time.monotonic()
-    now = timezone.now()
+    now = as_of or timezone.now()
     run = KmeansRun.objects.create(
         trigger_type=trigger_type,
         triggered_by=triggered_by,
@@ -101,7 +109,7 @@ def calculate_risk(trigger_type, triggered_by=None, incident=None) -> KmeansRun:
     )
 
     try:
-        devices = list(eligible_devices().values_list('id', flat=True))
+        devices = list(eligible_devices(as_of).values_list('id', flat=True))
         features = device_features(devices, now)
         # Paso 2 (RN-23): solo los equipos con al menos 2 incidencias entran al algoritmo.
         with_history = [device_id for device_id in devices if features[device_id].has_history]
@@ -114,7 +122,7 @@ def calculate_risk(trigger_type, triggered_by=None, incident=None) -> KmeansRun:
         known = isinstance(error, (RiskCalculationError, ValueError, FileNotFoundError))
         run.run_status = KmeansRun.RunStatus.FAILED
         run.error_message = str(error) if known else f'{type(error).__name__}: {error}'
-        run.finished_at = timezone.now()
+        run.finished_at = now + timedelta(seconds=time.monotonic() - started)
         run.duration_ms = int((time.monotonic() - started) * 1000)
         run.save()
         raise RiskCalculationError(run.error_message if known else 'Ocurrió un error al calcular el riesgo') from error
@@ -190,6 +198,6 @@ def _save(run, model, clustering, metrics, source, devices, features, with_histo
         'source': source,
         'model': model.to_dict(),
     }
-    run.finished_at = timezone.now()
+    run.finished_at = now + timedelta(seconds=time.monotonic() - started)
     run.duration_ms = int((time.monotonic() - started) * 1000)
     run.save()

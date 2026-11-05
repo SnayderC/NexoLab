@@ -161,6 +161,15 @@ class OwnHistoryRunTests(RiskDataMixin, TestCase):
         self.assertFalse(first.results.filter(is_current=True).exists())
         self.assertEqual(second.results.filter(is_current=True).count(), 10)
 
+    def test_d42_calculo_en_una_fecha_pasada(self):
+        # Como si fuera hace un año: ninguna falla había ocurrido todavía y todo queda en riesgo bajo por regla.
+        as_of = timezone.now() - timedelta(days=365)
+        run = calculate_risk(Trigger.INITIAL_LOAD, as_of=as_of)
+        self.assertEqual(run.started_at, as_of)
+        self.assertEqual(run.parameters['kmeans_device_count'], 0)
+        self.assertEqual(self.current('PC-01').incident_count, 0)
+        self.assertEqual(self.current('PC-01').calculated_at, as_of)
+
     def test_las_incidencias_anuladas_no_cuentan(self):
         Incident.objects.filter(device=self.devices['PC-07']).update(is_active=False)
         calculate_risk(Trigger.MANUAL)

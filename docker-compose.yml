@@ -1,5 +1,6 @@
-# Servicios de desarrollo de NexoLab.
-# Uso: docker compose up -d   (ver README.md)
+# Servicios de NexoLab. Ver README.md.
+#   docker compose up -d                 → solo la base de datos (backend y frontend se arrancan a mano)
+#   docker compose --profile app up -d   → todo el sistema: base de datos, backend y frontend
 services:
   db:
     image: postgres:17-alpine
@@ -18,6 +19,40 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  backend:
+    profiles: [app]
+    build: ./backend
+    container_name: nexolab_backend
+    # SECRET_KEY, DEBUG y DEMO_PASSWORD salen de backend/.env (no se suben a Git).
+    env_file: ./backend/.env
+    environment:
+      # Dentro de Docker la base de datos se llama "db" y escucha en el 5432 (no en el 5433 del equipo).
+      DATABASE_URL: postgres://${POSTGRES_USER:-nexolab}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-nexolab}
+    ports:
+      - '8000:8000'
+    # El código se comparte con el contenedor: los cambios se recargan solos, como con runserver.
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    profiles: [app]
+    build: ./frontend
+    container_name: nexolab_frontend
+    environment:
+      # El proxy de Vite (D-25) envía /api al contenedor del backend.
+      API_PROXY_TARGET: http://backend:8000
+    ports:
+      - '5173:5173'
+    volumes:
+      - ./frontend:/app
+      # node_modules queda dentro del contenedor (los paquetes instalados en el equipo no sirven en Linux Alpine).
+      - /app/node_modules
+    depends_on:
+      - backend
 
 volumes:
   nexolab_db_data:

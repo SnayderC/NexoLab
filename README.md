@@ -14,9 +14,36 @@ laboratorios del Bloque H. Proyecto de titulación, UNEMI.
 - Python 3.12 o superior (el desarrollo usa 3.14).
 - Node.js 22 LTS o superior.
 
-## Puesta en marcha (desarrollo)
+## Opción A: todo con Docker (un solo comando)
 
-Los comandos se ejecutan desde la raíz del repositorio.
+Solo necesitas Docker. Los comandos se ejecutan desde la raíz del repositorio.
+
+```bash
+cp .env.example .env                  # escribe una contraseña en POSTGRES_PASSWORD
+cp backend/.env.example backend/.env  # completa SECRET_KEY y DEMO_PASSWORD (DATABASE_URL lo pone Docker)
+docker compose --profile app up -d --build   # base de datos, backend y frontend
+docker compose exec backend python manage.py seed_demo   # solo la primera vez: datos de demostración
+```
+
+Abre http://localhost:5173. Las migraciones se aplican solas al arrancar el backend.
+
+| Para… | Comando |
+|---|---|
+| Ver si los servicios están corriendo | `docker compose --profile app ps` |
+| Ver los mensajes del backend | `docker compose logs -f backend` |
+| Volver a los datos de demostración | `docker compose exec backend python manage.py seed_demo --reset` |
+| Recalcular el riesgo | `docker compose exec backend python manage.py recalculate_risk` |
+| Ejecutar las pruebas del backend | `docker compose exec backend python manage.py test apps` |
+| Apagar todo (los datos se conservan) | `docker compose --profile app down` |
+
+Los cambios en el código se recargan solos. Si cambias `requirements.txt` o `package.json`, vuelve a ejecutar
+`docker compose --profile app up -d --build`. Antes de usar esta opción, apaga el `runserver` y el `npm run dev`
+de la opción B, porque usan los mismos puertos (8000 y 5173).
+
+## Opción B: cada parte por separado (desarrollo)
+
+Los comandos se ejecutan desde la raíz del repositorio. `docker compose up -d` (sin `--profile app`) levanta solo
+la base de datos.
 
 ### 1. Base de datos
 
@@ -68,7 +95,8 @@ Los crea `seed_demo`. Todos usan la contraseña definida en `DEMO_PASSWORD` (`ba
 | Inicio de sesión, sesión, cierre de sesión y cambio de contraseña | Conectados a la API real |
 | Todas las pantallas (dashboard, incidencias, reportes, equipos, laboratorios, catálogo, usuarios, perfil) | Conectadas a la API real |
 | Modelo K-Means (carga inicial con Kaggle; recálculo manual, al cerrar incidencias y al cambiar el catálogo) | Listo |
-| Docker Compose con todos los servicios y documentación final (fase 8) | Pendiente |
+| Docker Compose con base de datos, backend y frontend (perfil `app`) | Listo |
+| Documentación final y guion de la demostración (fase 8) | Pendiente |
 
 El detalle de cada fase está en la sección 15 de `docs/CONTEXTO_DESARROLLO.md`.
 

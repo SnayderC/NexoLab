@@ -1,14 +1,16 @@
 """
-Carga los datos de demostración (parte 3 de docs/PROMPT_FIGMA_MAKE_NEXOLAB.md).
+Carga los datos de demostración (D-42).
 
 Uso:  python manage.py seed_demo            (solo si la base está vacía)
       python manage.py seed_demo --reset    (borra los datos de NexoLab y los vuelve a cargar)
 
-Carga catálogos, usuarios, laboratorios, equipos e incidencias del prototipo de Figma.
-Al final ejecuta la carga inicial del modelo K-Means (INITIAL_LOAD con el dataset de Kaggle), así el
-riesgo de cada equipo sale de las incidencias guardadas.
+Carga los catálogos, los 3 usuarios del prototipo y el Bloque H de ejemplo (_demo_history.py): 10 laboratorios,
+sus equipos y un historial de incidencias de mayo a octubre de 2026. Después calcula el riesgo: la carga inicial
+con el dataset de Kaggle y un cálculo al cierre de cada mes, hasta el riesgo vigente de hoy.
 La contraseña de los usuarios se lee de DEMO_PASSWORD (backend/.env); nunca está en el código.
 """
+
+from datetime import datetime
 
 import environ
 from django.core.management.base import BaseCommand, CommandError
@@ -20,16 +22,17 @@ from django.utils.dateparse import parse_datetime
 from apps.incidents.models import Component, Incident, IncidentStatus, ResolutionAction
 from apps.infrastructure.models import Device, DeviceStatus, DeviceType, Laboratory
 from apps.risk.models import DeviceRiskResult, KmeansCentroid, KmeansRun, RiskLevel
+from apps.risk.management.commands.recalculate_risk import describe_run
 from apps.risk.services import RiskCalculationError, calculate_risk
 from apps.users.models import Role, User
 
-from ._demo_incidents import INCIDENTS
+from ._demo_history import LABORATORIES, TZ, build_history, build_inventory
 
 ROLES = [(1, 'TECHNICIAN', 'Técnico de soporte'), (2, 'ADMIN', 'Administrador')]
 
-# 32 tipos con los códigos del Figma 5.9; solo los 5 del Bloque H están seleccionados (D-22).
+# Tipos con los códigos del Figma 5.9, más AC y DOC (D-42). Los seleccionados son los que usa el Bloque H.
 DEVICE_TYPES = [
-    ('PC', 'PC de escritorio', True), ('MON', 'Monitor', True), ('AIO', 'Todo en uno', True),
+    ('PC', 'PC de escritorio', True), ('MON', 'Monitor', False), ('AIO', 'Todo en uno', True),
     ('UPS', 'UPS', True), ('TV', 'Televisor', True), ('LAP', 'Laptop', False),
     ('PRY', 'Proyector', False), ('IMP', 'Impresora', False), ('IMF', 'Impresora multifunción', False),
     ('ESC', 'Escáner', False), ('SWT', 'Switch', False), ('RTR', 'Router', False),
@@ -41,6 +44,7 @@ DEVICE_TYPES = [
     ('RCK', 'Rack de comunicaciones', False), ('CIP', 'Cámara IP', False),
     ('VDC', 'Equipo de videoconferencia', False), ('CAU', 'Consola de audio', False),
     ('CDO', 'Cámara de documentos', False), ('LBI', 'Lector biométrico', False),
+    ('AC', 'Aire acondicionado', True), ('DOC', 'PC docente', True),
 ]
 
 DEVICE_STATUSES = [(1, 'ACTIVE', 'Activo', True), (2, 'RETIRED', 'Retirado', False)]
@@ -67,43 +71,19 @@ RISK_LEVELS = [
 
 # (id, rol, nombres, apellidos, correo, activo, último acceso)
 USERS = [
-    (1, 2, 'Andrea', 'Villacís', 'andrea.villacis@gmail.com', True, '2026-10-17T08:12:00-05:00'),
-    (2, 1, 'Carlos', 'Mendoza', 'carlos.mendoza@gmail.com', True, '2026-10-17T07:58:00-05:00'),
+    (1, 2, 'Andrea', 'Villacís', 'andrea.villacis@gmail.com', True, '2026-11-04T08:12:00-05:00'),
+    (2, 1, 'Carlos', 'Mendoza', 'carlos.mendoza@gmail.com', True, '2026-11-04T07:58:00-05:00'),
     (3, 1, 'Luis', 'Bravo', 'luis.bravo@gmail.com', False, '2026-08-02T16:40:00-05:00'),
-]
-
-# (id, código, nombre, ubicación, puestos, composición de equipos activos por tipo)
-LABORATORIES = [
-    (1, 'H101', 'Laboratorio 1', 'Bloque H, planta baja', 10, {'PC': 10, 'MON': 10, 'UPS': 8}),
-    (2, 'H102', 'Laboratorio 2', 'Bloque H, planta baja', 10, {'PC': 10, 'MON': 10, 'UPS': 10}),
-    (3, 'H103', 'Laboratorio de Redes', 'Bloque H, planta alta', 12, {'PC': 12, 'MON': 12, 'UPS': 8}),
-    (4, 'H104', 'Laboratorio 4', 'Bloque H, planta alta', 12, {'AIO': 12, 'UPS': 12, 'TV': 1}),
-    (5, 'H105', 'Laboratorio 5', 'Bloque H, planta alta', 12, {'AIO': 12, 'UPS': 12, 'TV': 3}),
 ]
 RESPONSIBLE_TECHNICIAN_ID = 2  # Carlos Mendoza
 
-# Equipos retirados y su fecha de retiro. Ocupan un número dentro de su laboratorio y tipo.
-RETIRED_DEVICES = {
-    'H103-PC-09': '2026-10-12T09:15:00-05:00',
-    'H101-MON-04': '2026-09-21T10:00:00-05:00',
-    'H105-UPS-01': '2026-09-05T11:30:00-05:00',
-}
-
-SPECIFICATIONS_BY_TYPE = {
-    'PC': 'Intel Core i5, 8 GB RAM',
-    'MON': 'Monitor 24" Full HD',
-    'AIO': 'Intel Core i5, 8 GB RAM, pantalla 23,8"',
-    'UPS': '1000 VA',
-    'TV': 'Smart TV de 55 pulgadas',
-}
-SPECIFICATIONS_BY_DEVICE = {'H103-PC-09': 'Intel Core i3, 4 GB RAM'}
-
-
-def physical_location(type_code: str, number: int) -> str:
-    """Cuatro puestos por fila: 1–4 en la fila 1, 5–8 en la 2, 9–12 en la 3."""
-    if type_code == 'TV':
-        return 'Pared frontal del aula'
-    return f'Fila {(number + 3) // 4}, puesto {number}'
+# Fecha en que se registró el inventario en el sistema, antes del historial de incidencias.
+INVENTORY_DATE = datetime(2026, 4, 1, 8, 0, tzinfo=TZ)
+# Ejecuciones del modelo: la carga inicial antes de las incidencias y un cálculo al cierre de cada mes,
+# para que el historial de cada equipo muestre su evolución (D-42).
+INITIAL_LOAD_AT = datetime(2026, 5, 1, 7, 0, tzinfo=TZ)
+MONTHLY_RUNS = [datetime(2026, month, day, 19, 0, tzinfo=TZ)
+                for month, day in ((5, 31), (6, 30), (7, 31), (8, 31), (9, 30), (10, 31))]
 
 
 class Command(BaseCommand):
@@ -133,13 +113,13 @@ class Command(BaseCommand):
         ))
 
         # Fuera de la transacción: si el cálculo falla, los datos quedan cargados y se puede repetir
-        # con "python manage.py recalculate_risk --initial".
+        # con "python manage.py recalculate_risk --initial" y luego "python manage.py recalculate_risk".
         try:
-            run = calculate_risk(KmeansRun.TriggerType.INITIAL_LOAD)
+            run = self._calculate_risk()
         except RiskCalculationError as error:
             self.stderr.write(self.style.WARNING(f'No se pudo calcular el riesgo: {error}'))
         else:
-            self.stdout.write(self.style.SUCCESS(f'Riesgo calculado (ejecución {run.id}).'))
+            self.stdout.write(self.style.SUCCESS(describe_run(run)))
 
     def _reset(self):
         # De las tablas hijas a las padres, por las llaves foráneas.
@@ -173,59 +153,68 @@ class Command(BaseCommand):
             user.save()
 
         Laboratory.objects.bulk_create([
-            Laboratory(id=i, code=c, name=n, location=loc, station_count=s,
+            Laboratory(id=i, code=code, name=name, location=location, station_count=pcs,
                        responsible_technician_id=RESPONSIBLE_TECHNICIAN_ID)
-            for i, c, n, loc, s, _ in LABORATORIES
+            for i, (code, name, location, _kind, pcs, _ac, _tv) in enumerate(LABORATORIES, start=1)
         ])
 
-        type_ids = {t.code: t.id for t in DeviceType.objects.all()}
-        devices = []
-        for lab_id, lab_code, *_, composition in LABORATORIES:
-            for type_code, active_count in composition.items():
-                prefix = f'{lab_code}-{type_code}-'
-                retired_count = sum(1 for code in RETIRED_DEVICES if code.startswith(prefix))
-                for number in range(1, active_count + retired_count + 1):
-                    code = f'{prefix}{number:02d}'
-                    retired_at = RETIRED_DEVICES.get(code)
-                    devices.append(Device(
-                        id=len(devices) + 1,
-                        code=code,
-                        laboratory_id=lab_id,
-                        device_type_id=type_ids[type_code],
-                        device_status_id=2 if retired_at else 1,
-                        physical_location=physical_location(type_code, number),
-                        specifications=SPECIFICATIONS_BY_DEVICE.get(code, SPECIFICATIONS_BY_TYPE[type_code]),
-                        retired_at=parse_datetime(retired_at) if retired_at else None,
-                    ))
-        Device.objects.bulk_create(devices)
-        self._seed_incidents()
+        lab_ids = dict(Laboratory.objects.values_list('code', 'id'))
+        type_ids = dict(DeviceType.objects.values_list('code', 'id'))
+        inventory = build_inventory()
+        Device.objects.bulk_create([
+            Device(
+                id=index,
+                code=device.code,
+                laboratory_id=lab_ids[device.laboratory],
+                device_type_id=type_ids[device.type_code],
+                device_status_id=2 if device.retired_at else 1,
+                physical_location=device.location,
+                specifications=device.specifications,
+                retired_at=device.retired_at,
+            )
+            for index, device in enumerate(inventory, start=1)
+        ])
+        # El inventario se registró antes del historial de incidencias.
+        Laboratory.objects.update(created_at=INVENTORY_DATE, updated_at=INVENTORY_DATE)
+        Device.objects.update(created_at=INVENTORY_DATE, updated_at=Coalesce(F('retired_at'), INVENTORY_DATE))
+        self._seed_incidents(inventory)
 
-    def _seed_incidents(self):
+    def _seed_incidents(self, inventory):
         device_ids = dict(Device.objects.values_list('code', 'id'))
         component_ids = dict(Component.objects.values_list('code', 'id'))
         action_ids = dict(ResolutionAction.objects.values_list('code', 'id'))
+        # Numeradas por fecha de la falla: INC-2026-0001 es la más antigua (RN-14).
         Incident.objects.bulk_create([
             Incident(
-                id=data['id'],
-                incident_number=f"INC-2026-{data['id']:04d}",
-                device_id=device_ids[data['device']],
-                component_id=component_ids[data['component']],
+                id=number,
+                incident_number=f'INC-2026-{number:04d}',
+                device_id=device_ids[incident.device],
+                component_id=component_ids[incident.component],
                 incident_status_id=2 if closing else 1,
                 resolution_action_id=action_ids[closing['action']] if closing else None,
-                reported_by_id=data['reported_by'],
+                reported_by_id=incident.reported_by,
                 closed_by_id=closing['closed_by'] if closing else None,
-                priority=data['priority'],
-                description=data['description'],
+                priority=incident.priority,
+                description=incident.description,
                 diagnosis=closing['diagnosis'] if closing else None,
-                opened_at=parse_datetime(data['opened_at']),
+                opened_at=incident.opened_at,
                 closed_at=closing['closed_at'] if closing else None,
                 resolution_time_minutes=closing['minutes'] if closing else None,
             )
-            for data in INCIDENTS
-            for closing in [data['closing']]
+            for number, incident in enumerate(build_history(inventory), start=1)
+            for closing in [incident.closing]
         ])
         # Las fechas de control siguen a las de la incidencia, no a la hora en que se cargó.
         Incident.objects.update(created_at=F('opened_at'), updated_at=Coalesce(F('closed_at'), F('opened_at')))
+
+    def _calculate_risk(self):
+        """Carga inicial (Kaggle), un cálculo al cierre de cada mes y el cálculo de hoy (riesgo vigente)."""
+        runs = [(KmeansRun.TriggerType.INITIAL_LOAD, INITIAL_LOAD_AT)]
+        runs += [(KmeansRun.TriggerType.MANUAL, moment) for moment in MONTHLY_RUNS]
+        runs.append((KmeansRun.TriggerType.MANUAL, None))
+        for trigger, moment in runs:
+            run = calculate_risk(trigger, as_of=moment)
+        return run
 
     def _reset_sequences(self):
         # Los ids se dieron a mano: la secuencia de cada tabla debe continuar desde el mayor.
