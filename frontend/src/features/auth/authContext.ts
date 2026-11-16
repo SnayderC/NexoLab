@@ -5,6 +5,8 @@ export type AuthContextValue = {
   user: SessionUser | null
   // true mientras se consulta al servidor si ya hay una sesión abierta.
   isLoading: boolean
+  // D-47: la sesión venció mientras se usaba el sistema (el login muestra un aviso).
+  sessionExpired: boolean
   login: (email: string, password: string) => Promise<void>
   logout: () => Promise<void>
   // Solo administrador (RN-24).

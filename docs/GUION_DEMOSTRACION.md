@@ -102,12 +102,20 @@ Abre **Reportes** y cambia el periodo a mayo–octubre.
 ## 9. Cierre (30 segundos)
 
 > "NexoLab reemplaza el registro informal por un sistema con reglas, guarda el historial completo y usa
-> inteligencia artificial para decir qué equipos atender primero. El sistema tiene 94 pruebas automáticas y cada
+> inteligencia artificial para decir qué equipos atender primero. El sistema tiene 97 pruebas automáticas y cada
 > decisión está documentada."
 
 ---
 
 ## Preguntas frecuentes
+
+**¿Qué pasa si alguien intenta adivinar una contraseña?**
+Tras 5 intentos fallidos con el mismo correo, el login se bloquea 15 minutos, aunque después acierte (RN-25). El bloqueo
+es igual aunque el correo no exista, así no se revela qué correos están registrados.
+
+**¿Y si se pierde la información?**
+Hay respaldos: `sh scripts/respaldar.sh` guarda una copia de toda la base y `sh scripts/restaurar.sh` la recupera en una
+sola operación (si algo falla, no cambia nada).
 
 **¿Los datos son reales?**
 El inventario sigue la descripción del Bloque H; las incidencias son simuladas para la demostración. El modelo y
@@ -132,7 +140,7 @@ sistema sirve para laboratorios de distintos tamaños (D-33).
 El administrador lo anula. No se borra: queda como evidencia, pero no cuenta (RN-22).
 
 **¿Cómo saben que funciona?**
-Hay 94 pruebas automáticas del backend, y cada ejecución del modelo guarda sus métricas y los datos que usó.
+Hay 97 pruebas automáticas del backend, y cada ejecución del modelo guarda sus métricas y los datos que usó.
 
 ---
 
@@ -143,3 +151,4 @@ Hay 94 pruebas automáticas del backend, y cada ejecución del modelo guarda sus
 | La página no carga | `docker compose --profile app ps`: los tres servicios deben decir "Up". Si no, `docker compose --profile app up -d` |
 | "No se pudo iniciar sesión" | Revisa que el backend esté corriendo: `docker compose logs backend` |
 | Los datos quedaron desordenados | `docker compose exec backend python manage.py seed_demo --reset` |
+| "Demasiados intentos fallidos" al entrar | Es el límite de intentos (RN-25): espera 15 minutos o reinicia el backend (`docker compose --profile app restart backend`), que borra el contador |

@@ -68,8 +68,9 @@ class LaboratoryListTests(LaboratoryTestCase):
         self.assertEqual(h101['open_incident_count'], 1)  # la anulada no cuenta
         self.assertEqual(response.data[1]['device_counts'], [])
 
-    def test_sin_sesion_responde_403(self):
-        self.assertEqual(self.client.get(reverse('laboratory-list')).status_code, status.HTTP_403_FORBIDDEN)
+    def test_sin_sesion_responde_401(self):
+        # D-47: sin sesión es 401; 403 queda para "sin permiso" (RN-06).
+        self.assertEqual(self.client.get(reverse('laboratory-list')).status_code, status.HTTP_401_UNAUTHORIZED)
 
 
 class LaboratoryWriteTests(LaboratoryTestCase):

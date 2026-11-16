@@ -1,5 +1,6 @@
 """Pruebas de autenticación, permisos y administración de usuarios (RN-01 a RN-06). Ejecutar: python manage.py test"""
 
+from django.core.cache import cache
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
@@ -28,6 +29,10 @@ class AuthTestCase(APITestCase):
             'luis.bravo@gmail.com', PASSWORD, first_name='Luis', last_name='Bravo',
             role=cls.technician_role, is_active=False,
         )
+
+    def setUp(self):
+        # Los intentos fallidos de login (RN-25) viven en la caché: cada prueba empieza sin ellos.
+        cache.clear()
 
     def login(self, email, password=PASSWORD):
         return self.client.post(reverse('auth-login'), {'email': email, 'password': password}, format='json')
@@ -87,10 +92,42 @@ class LoginTests(AuthTestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
 
+class LoginAttemptTests(AuthTestCase):
+    """RN-25 (D-46): 5 intentos fallidos bloquean el login 15 minutos."""
+
+    def test_rn25_bloquea_tras_cinco_intentos_fallidos(self):
+        for _ in range(5):
+            self.assertEqual(self.login('andrea.villacis@gmail.com', 'otra-clave').status_code,
+                             status.HTTP_400_BAD_REQUEST)
+        # Bloqueado aunque ahora la contraseña sea correcta.
+        response = self.login('andrea.villacis@gmail.com')
+        self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+        self.assertEqual(response.data['code'], 'too_many_attempts')
+        self.assertIn('15 minutos', response.data['detail'])
+        # Otra cuenta no se ve afectada.
+        self.assertEqual(self.login('carlos.mendoza@gmail.com').status_code, status.HTTP_200_OK)
+
+    def test_rn25_correo_inexistente_se_bloquea_igual(self):
+        # RN-01: el bloqueo no revela si el correo existe.
+        for _ in range(5):
+            self.login('nadie@gmail.com')
+        self.assertEqual(self.login('nadie@gmail.com').status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
+    def test_rn25_un_login_correcto_reinicia_el_contador(self):
+        for _ in range(4):
+            self.login('andrea.villacis@gmail.com', 'otra-clave')
+        self.assertEqual(self.login('andrea.villacis@gmail.com').status_code, status.HTTP_200_OK)
+        for _ in range(4):
+            self.login('andrea.villacis@gmail.com', 'otra-clave')
+        self.assertEqual(self.login('andrea.villacis@gmail.com').status_code, status.HTTP_200_OK)
+
+
 class SessionTests(AuthTestCase):
     def test_me_sin_sesion_es_rechazado(self):
+        # D-47: 401 (no 403) para que el frontend lleve al login; sin la ventana de contraseña del navegador.
         response = self.client.get(reverse('auth-me'))
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(response['WWW-Authenticate'], 'Session')
 
     def test_me_con_sesion(self):
         self.login('carlos.mendoza@gmail.com')
@@ -101,7 +138,7 @@ class SessionTests(AuthTestCase):
     def test_logout_cierra_la_sesion(self):
         self.login('carlos.mendoza@gmail.com')
         self.assertEqual(self.client.post(reverse('auth-logout')).status_code, status.HTTP_204_NO_CONTENT)
-        self.assertEqual(self.client.get(reverse('auth-me')).status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(self.client.get(reverse('auth-me')).status_code, status.HTTP_401_UNAUTHORIZED)
 
 
 class ChangePasswordTests(AuthTestCase):

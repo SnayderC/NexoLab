@@ -13,8 +13,9 @@ Antes de cada tarea, consulta las secciones relevantes de `docs/CONTEXTO_DESARRO
 
 ## Estado actual
 - Fases 0 a 7 terminadas: todas las pantallas (Figma 01 a 06) usan la API real; `src/mocks/` ya no existe.
-- Backend: autenticación, administración, incidencias, reportes y modelo K-Means (con Kaggle), con 94 pruebas.
+- Backend: autenticación, administración, incidencias, reportes y modelo K-Means (con Kaggle), con 97 pruebas.
 - Fase 9 (revisión del 12/11/2026): modo técnico del administrador (RN-24, D-45) y "Solución aplicada" al cerrar (D-44).
+- Fase 10 (16/11/2026): límite de intentos de login (RN-25), aviso de sesión vencida (D-47), respaldos con `scripts/` (D-48); se quitó `features/dev` (D-49); RNF03 medido con `scripts/medir_rendimiento.py` (D-50). Falta aplicar la ficha de usabilidad (`docs/evidencias/`).
 - Documento para quien redacta la tesis: `docs/DOCUMENTO_PARA_TESIS.md`.
 - Los datos de demostración (Bloque H de ejemplo: 10 laboratorios, 432 equipos, 325 incidencias) se cargan con `python manage.py seed_demo` (D-42).
 - Docker Compose completo: `docker compose --profile app up -d` (D-41).

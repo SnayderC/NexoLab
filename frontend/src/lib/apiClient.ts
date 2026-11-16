@@ -16,6 +16,15 @@ export class ApiError extends Error {
   }
 }
 
+// D-47: el backend responde 401 cuando la sesión ya no existe (venció o se cerró). AuthProvider registra aquí qué
+// hacer: olvidar al usuario y llevarlo al login. Las rutas de la propia sesión no cuentan como "venció".
+let sessionExpiredHandler: (() => void) | null = null
+const SESSION_PATHS = ['/auth/me', '/auth/login', '/auth/logout']
+
+export function setSessionExpiredHandler(handler: (() => void) | null) {
+  sessionExpiredHandler = handler
+}
+
 function readCookie(name: string): string | null {
   const match = document.cookie.split('; ').find((cookie) => cookie.startsWith(`${name}=`))
   return match ? decodeURIComponent(match.split('=')[1]) : null
@@ -43,6 +52,7 @@ export async function apiRequest<T>(path: string, options: { method?: string; bo
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
   })
 
+  if (response.status === 401 && !SESSION_PATHS.includes(path)) sessionExpiredHandler?.()
   if (response.status === 204) return undefined as T
   const data = await response.json().catch(() => ({}))
   if (!response.ok) throw new ApiError(response.status, data)

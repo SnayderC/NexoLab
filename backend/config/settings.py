@@ -16,6 +16,8 @@ env = environ.Env(
     ALLOWED_HOSTS=(list, ['localhost', '127.0.0.1']),
     CSRF_TRUSTED_ORIGINS=(list, ['http://localhost:5173']),
     RISK_MIN_OWN_HISTORY_DEVICES=(int, 30),
+    LOGIN_MAX_FAILED_ATTEMPTS=(int, 5),
+    LOGIN_LOCKOUT_MINUTES=(int, 15),
 )
 environ.Env.read_env(BASE_DIR / '.env')
 
@@ -96,7 +98,8 @@ SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
 
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': ['rest_framework.authentication.SessionAuthentication'],
+    # Sesión de Django; sin sesión la API responde 401 para que el frontend lleve al login (D-47).
+    'DEFAULT_AUTHENTICATION_CLASSES': ['apps.users.authentication.SessionAuthentication'],
     # Toda la API requiere sesión, salvo lo que se declare público (login, csrf).
     'DEFAULT_PERMISSION_CLASSES': ['rest_framework.permissions.IsAuthenticated'],
     'DEFAULT_RENDERER_CLASSES': ['rest_framework.renderers.JSONRenderer'],
@@ -107,3 +110,7 @@ REST_FRAMEWORK = {
 # K-Means (sección 10, D-33): equipos con historial propio necesarios para dejar de usar el modelo de Kaggle.
 # Se ajusta por instalación en .env según el tamaño de los laboratorios.
 RISK_MIN_OWN_HISTORY_DEVICES = env('RISK_MIN_OWN_HISTORY_DEVICES')
+
+# RN-25 (D-46): intentos fallidos de login antes de bloquear, y minutos de bloqueo.
+LOGIN_MAX_FAILED_ATTEMPTS = env('LOGIN_MAX_FAILED_ATTEMPTS')
+LOGIN_LOCKOUT_MINUTES = env('LOGIN_LOCKOUT_MINUTES')

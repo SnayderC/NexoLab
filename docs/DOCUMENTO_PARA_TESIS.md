@@ -3,7 +3,7 @@
 > **Para quién es:** para quien redacta el estudio de caso (capítulos 1 a 8 de la plantilla UNEMI).
 > **Qué contiene:** lo que el sistema hace de verdad, con los números que salen de la base de datos y del código, y
 > las partes en que el borrador del capítulo 3 no coincide con lo construido.
-> **Fecha de corte:** 12/11/2026 (incluye los cambios pedidos en la revisión: modo técnico y "Solución aplicada"). Repositorio: `github.com/SnayderC/NexoLab`.
+> **Fecha de corte:** 16/11/2026 (incluye los cambios de la revisión, modo técnico y "Solución aplicada", y las mejoras de calidad: límite de intentos de login, sesión vencida y respaldos). Repositorio: `github.com/SnayderC/NexoLab`.
 > **Regla:** si la tesis y el sistema dicen cosas distintas, el tribunal lo va a notar. Cada diferencia de la
 > sección 1 se resuelve de una de dos formas: se ajusta el texto de la tesis o se cambia el sistema. No se dejan las dos
 > versiones.
@@ -12,7 +12,7 @@
 
 ## Índice
 
-1. [Diferencias entre el borrador de la tesis y el sistema](#1-diferencias-entre-el-borrador-de-la-tesis-y-el-sistema)
+1. [Diferencias entre el borrador de la tesis y el sistema](#1-diferencias-entre-el-borrador-de-la-tesis-y-el-sistema) (con textos de reemplazo para Celery y Redis en 1.1)
 2. [Resumen del sistema (para Resumen y Abstract)](#2-resumen-del-sistema)
 3. [Estado de cada requisito (capítulo 3.2)](#3-estado-de-cada-requisito)
 4. [Cómo se desarrolló en la práctica (capítulos 3.4 y 3.5)](#4-cómo-se-desarrolló-en-la-práctica)
@@ -32,7 +32,7 @@ Revisado contra el PDF "Grupo F - CAPITULO 3". Están ordenadas de mayor a menor
 
 | # | Tema | Lo que dice la tesis | Lo que hace el sistema | Dónde aparece en la tesis | Propuesta |
 |---|---|---|---|---|---|
-| 1 | **Procesamiento en segundo plano** | Celery y Redis; recálculo automático **cada 15 minutos** | **No hay Celery, Redis ni recálculo periódico.** K-Means se ejecuta dentro de Django justo después de guardar el cierre de una incidencia, al anularla, al guardar el catálogo o con el botón "Recalcular ahora". Tarda entre 50 y 120 ms, así que el usuario no nota espera (decisión D-06) | Objetivo específico 3, 1.2, RF11 (CA01–CA03), RNF07, HU08 (CA05), Tabla 33 semana 6, Tabla 34 semana 6, CP22–CP25 | **Ajustar la tesis** (recomendado): cambiar a "recálculo por eventos", justificando que con este volumen el cálculo dura milisegundos y dos servicios menos simplifican la instalación. Dejar Celery como recomendación futura. Si el tutor exige Celery, hay que programarlo (varios días) |
+| 1 | **Procesamiento en segundo plano** | Celery y Redis; recálculo automático **cada 15 minutos** | **No hay Celery, Redis ni recálculo periódico.** K-Means se ejecuta dentro de Django justo después de guardar el cierre de una incidencia, al anularla, al guardar el catálogo o con el botón "Recalcular ahora". Tarda entre 50 y 120 ms, así que el usuario no nota espera (decisión D-06) | Objetivo específico 3, 1.2, RF11 (CA01–CA03), RNF07, HU08 (CA05), Tabla 33 semana 6, Tabla 34 semana 6, CP22–CP25 | **Ajustar la tesis** (recomendado): cambiar a "recálculo por eventos", justificando que con este volumen el cálculo dura milisegundos y dos servicios menos simplifican la instalación. Dejar Celery como recomendación futura. Si el tutor exige Celery, hay que programarlo (varios días). **Textos listos para reemplazar: sección 1.1** |
 | 2 | **Autenticación** | JWT y "tokens con tiempo de expiración" | **Sesión de Django** con cookie `sessionid` HttpOnly que dura 8 horas, más protección CSRF (D-25). No hay tokens JWT | RF01 (observaciones), RNF01 (métrica y verificación), CP03 ("token inválido") | **Ajustar la tesis:** "autenticación por sesión con cookie HttpOnly y CSRF; la sesión expira a las 8 horas". Es más segura para una web (JavaScript no puede leer la cookie) |
 | 3 | **Laboratorios y equipos** | 5 laboratorios (H101–H105) y 142 equipos | **El sistema no tiene límite.** Los datos de demostración tienen 10 laboratorios (H101–H109, con H106A y H106B) y 432 equipos, descritos por el autor. El 142 venía del prototipo de Figma | Objetivo general y específicos, 1.2 (alcance), RF03, RF04, Tabla 33 semana 2, RNF03, CP31, integración de antecedentes | Decidir con el tutor: (a) cambiar la tesis a "10 laboratorios del Bloque H" o (b) reducir los datos de demostración a H101–H105. El sistema funciona igual en ambos casos |
 | 4 | **Registros históricos** | "636 registros previos de soporte TI" | Se usa el dataset **ITSM de Kaggle** (`backend/data/ITSM_data.csv`): 46 606 registros. Filtrando solo incidencias de equipos parecidos a los de un laboratorio quedan **2 519 incidencias de 1 219 equipos**; **142 equipos** tienen 2 o más y son los que entrenan el modelo | 1.2, alcance, TK02 | **Ajustar la tesis** con estas cifras. El número 636 no sale de ningún filtro del dataset; si viene de otra fuente, hay que indicarla |
@@ -42,12 +42,78 @@ Revisado contra el PDF "Grupo F - CAPITULO 3". Están ordenadas de mayor a menor
 | 8 | **Recálculo al registrar un equipo nuevo** | Un equipo nuevo dispara el recálculo | No lo dispara: un equipo nuevo **entra en riesgo bajo** hasta el siguiente cálculo, porque no tiene historial (D-36) | RF11 CA03, CP24 | Ajustar el texto: el recálculo se dispara al cerrar, anular, cambiar el catálogo o a pedido del administrador |
 | 9 | **Eliminar equipos** | "Las operaciones de eliminación deberán respetar los antecedentes" | **No se eliminan equipos**: se retiran. El retiro conserva todo el historial. Falta decidir si se agrega "anular equipo creado por error" | RF04 observaciones | Cambiar "eliminación" por "retiro" |
 | 10 | **Número de grupos (k)** | Comprobar si k=3 es adecuado (método del codo, referente de Vita et al.) | **k = 3 fijo.** No se programó el método del codo; la calidad se mide con silueta y Davies-Bouldin en cada ejecución | 2 (referentes), RF10 | Mencionar k=3 como decisión de diseño (tres niveles de riesgo) y el codo como trabajo futuro, o hacer un análisis del codo aparte para el capítulo de resultados |
-| 11 | **Rendimiento (RNF03) y usabilidad (RNF06)** | Metas: 95 % de respuestas en ≤ 3 s con 10 usuarios; 4 de 5 participantes completan 3 tareas | **No se han medido todavía** | RNF03, RNF06, CP31, CP33 | Hay que ejecutarlas antes de llenar la tabla 5.5. Ver sección 7.3 |
+| 11 | **Rendimiento (RNF03) y usabilidad (RNF06)** | Metas: 95 % de respuestas en ≤ 3 s con 10 usuarios; 4 de 5 participantes completan 3 tareas | **RNF03 medido el 16/11/2026: cumple** (sección 7.3). **RNF06 todavía no se aplica:** la ficha está lista en `docs/evidencias/ficha_usabilidad.md` | RNF03, RNF06, CP31, CP33 | RNF03: cambiar "142 equipos" por los 432 con que se midió (sección 7.3). RNF06: aplicar la ficha a 5 personas y anotar el resultado |
 | 12 | **Funciones agregadas** | No están en el capítulo 3 | **Anular incidencia** (RN-22, solo administrador) y **pantalla de Reportes** (D-40) | — | Agregarlas: Reportes cubre RU08 y Anular cubre la integridad del historial. Ver sección 3 |
 | 13 | **Tablero Kanban y fechas** | 8 semanas, tablero con evidencia semanal | En el repositorio no hay tablero; la evidencia disponible es el **historial de Git** (sección 4) | 3.4, 3.5, Tabla 34 | Llenar la Tabla 34 con fechas reales y capturas del tablero si existe |
 | 14 | **Pantallas pequeñas** | RNF06 no habla de dispositivos | La interfaz está hecha para escritorio (1440 px, como el Figma). En tablet y celular no se adapta bien | — | Si se menciona, decir "diseñada para escritorio" y dejar el diseño adaptable como recomendación |
 | 15 | **"Diagnóstico" al cerrar** (cambio de la revisión) | RF08 y HU07: "registrar el diagnóstico y la acción realizada" | Al cerrar se piden **"Solución aplicada"** (qué se hizo) y **"Resultado de la atención"** (Resuelto, Requiere reemplazo o Derivado). El diagnóstico es una etapa anterior; los nombres siguen a ITIL (D-44) | RF08 (nombre, descripción, CA01, CA04), HU07, CP14, Tabla 31 | **Ajustar la tesis:** RF08 "Registro de la solución y cierre de incidencias" |
 | 16 | **Administrador y técnico** (cambio de la revisión) | RF06, RF07 y RF08: el actor es "técnico de soporte y administrador/coordinador" | El administrador **no registra ni cierra** en su modo normal. Para hacerlo activa el **modo técnico**, y el servidor lo controla (RN-24, D-45). En su modo normal consulta, anula, recalcula y administra | RF01 (CA03), RF06, RF08, RNF01, HU01, CP03 | **Ajustar la tesis:** actor de RF06 y RF08 = "técnico de soporte (o administrador en modo técnico)"; agregar a RF01 "CA04: el administrador cambia entre su modo y el modo técnico" |
+
+
+### 1.1 Textos de reemplazo: Celery, Redis y "cada 15 minutos"
+
+El sistema **no usa Celery ni Redis** y **no recalcula cada 15 minutos**. El riesgo se recalcula **por eventos**:
+al cerrar una incidencia, al anularla, al guardar el catálogo y cuando el administrador pulsa "Recalcular ahora".
+Cada cálculo tarda entre 50 y 120 ms con 432 equipos, queda guardado con sus métricas y, si falla, no deshace la
+operación que lo disparó. Estos son los textos para reemplazar en el capítulo 3; la justificación va en el último
+punto.
+
+**Objetivo específico 3** (en 1.2). En lugar de "Integrar el procesamiento periódico mediante Celery y Redis y
+organizar el entorno local con Docker Compose", escribir:
+> Integrar la actualización automática de los agrupamientos ante los eventos que modifican el historial (cierre y
+> anulación de incidencias, cambios en el catálogo) y organizar el entorno local con Docker Compose.
+
+**Propósito del caso** (1.2). En lugar de "mantenga separado, en segundo plano, el procesamiento necesario para
+agrupar los equipos", escribir:
+> …y actualice el agrupamiento de los equipos cada vez que cambie su historial, sin interrumpir el registro de las
+> atenciones.
+
+**RF11 (Tabla 11).**
+- *Descripción:* "El sistema debe actualizar automáticamente los agrupamientos de riesgo mediante K-Means cuando se
+  produzcan cambios relevantes: el cierre o la anulación de una incidencia y la modificación del catálogo de equipos.
+  El administrador también puede solicitar un recálculo manual."
+- *CA01:* "recalcular al cerrar una incidencia, después de guardar el cierre". *CA02:* "recalcular al anular una
+  incidencia". *CA03:* "recalcular al guardar el catálogo de tipos de equipo". *CA04 a CA06:* se mantienen.
+- *Observaciones:* "El cálculo se ejecuta dentro del backend una vez confirmado el cambio que lo dispara. Si falla,
+  el cambio se conserva y la ejecución queda registrada como fallida con su mensaje de error. Un equipo nuevo entra
+  con riesgo bajo hasta el siguiente cálculo."
+
+**RNF07 (Tabla 20).** Cambiar el nombre a **"Independencia del procesamiento"**:
+- *Descripción:* "El recálculo de los agrupamientos no debe impedir ni deshacer las operaciones de registro, cierre
+  y anulación de incidencias."
+- *Métrica:* "En el 100 % de los casos de prueba, un error del cálculo de K-Means no deshace el cierre de la
+  incidencia y queda registrado como ejecución fallida. Cada cálculo tarda menos de 1 segundo con los equipos del
+  Bloque H."
+- *Evidencia:* "Registros de `hst_kmeans_runs` (estado, duración y mensaje de error) y pruebas automáticas."
+
+**HU08 (Tabla 28), CA05:** "permitir la actualización automática de los agrupamientos cuando se cierre o anule
+una incidencia y cuando se modifique el catálogo de equipos".
+
+**Tabla 33, semana 6:** "integrar la actualización automática por eventos…" en lugar de "integrar el
+procesamiento en segundo plano". Entregable: "…con actualización automática ante los eventos definidos".
+
+**Tabla 34, semana 6:** acción "Revisar los resultados del modelo y el recálculo por eventos" en lugar de "…el
+funcionamiento de Celery".
+
+**Tabla 35:**
+- **CP22:** reemplazarlo por "Pulsar 'Recalcular ahora' como administrador → se crea una ejecución MANUAL con sus
+  resultados" (prueba `test_administrador_recalcula`).
+- **CP23:** "Cerrar una incidencia válida → se registra una ejecución INCIDENT_CLOSED" (prueba
+  `test_cerrar_con_historial_suficiente_actualiza_el_riesgo`).
+- **CP24:** quitar "o registrar un nuevo dispositivo".
+- **CP25:** "Simular un error del cálculo al cerrar → el cierre se conserva y la ejecución queda FAILED" (prueba
+  `test_cerrar_recalcula_el_riesgo_y_un_fallo_no_deshace_el_cierre`).
+
+**Justificación** (para el capítulo 4 o 5, o si el tribunal pregunta):
+> Se evaluó usar Celery y Redis para procesar el agrupamiento en segundo plano. Con el volumen del Bloque H
+> (432 equipos), cada cálculo de K-Means tarda entre 50 y 120 milisegundos, de modo que ejecutarlo dentro del backend,
+> después de confirmar el cambio que lo dispara, no genera esperas perceptibles. Esto evita dos servicios adicionales
+> que habría que instalar, configurar y mantener. Un error del cálculo no afecta la operación del técnico: el cambio
+> se conserva y la ejecución queda registrada como fallida. Si el volumen creciera, por ejemplo a varios bloques o
+> sedes, se recomienda incorporar Celery y Redis para el procesamiento asíncrono y un recálculo programado.
+
+**Recomendaciones (capítulo 6):** agregar "Incorporar Celery y Redis para el recálculo asíncrono y periódico si el
+número de equipos crece".
 
 ---
 
@@ -59,7 +125,7 @@ Revisado contra el PDF "Grupo F - CAPITULO 3". Están ordenadas de mayor a menor
 - **Registra incidencias** por laboratorio y equipo, calcula el tiempo de atención y retira el equipo cuando la acción de cierre es "Requiere reemplazo".
 - **Clasifica los equipos** en riesgo alto, medio y bajo con **K-Means (k = 3)** de scikit-learn, usando tres variables: número de incidencias, días desde la última falla e intervalo promedio entre fallas.
 - **Al inicio aprende de un dataset público de Kaggle:** 2 519 incidencias, con una silueta de 0,52. Cuando el laboratorio llega a 30 equipos con historial propio, aprende de sus datos; con los de demostración, la silueta fue de 0,39.
-- **Se validó** con 94 pruebas automáticas y datos de demostración: 10 laboratorios, 432 equipos y 325 incidencias simuladas.
+- **Se validó** con 97 pruebas automáticas y datos de demostración: 10 laboratorios, 432 equipos y 325 incidencias simuladas.
 
 **Palabras clave sugeridas:** gestión de incidencias, K-Means, aprendizaje no supervisado, mantenimiento de equipos, aplicación web.
 **Keywords:** incident management, K-Means, unsupervised learning, equipment maintenance, web application.
@@ -98,12 +164,12 @@ Significado de los estados:
 
 | RNF | Atributo | Estado | Evidencia disponible |
 |---|---|---|---|
-| RNF01 | Seguridad | Cumple con cambio (sesión, no tokens) | Pruebas de login, CSRF, accesos sin sesión (403) y técnico en administración (403). Las contraseñas se guardan con hash y las credenciales están en `.env` |
-| RNF02 | Integridad | Cumple | Cierre y retiro en una transacción (`transaction.atomic`); claves foráneas `PROTECT` (no se borra nada con historial); prueba "un fallo del modelo no deshace el cierre" |
-| RNF03 | Rendimiento | Pendiente de medir | Referencia: un cálculo de K-Means tarda entre 50 y 120 ms con 432 equipos (campo `duration_ms`) |
+| RNF01 | Seguridad | Cumple con cambio (sesión, no tokens) | Pruebas de login, CSRF, accesos sin sesión (401) y técnico en administración (403). Límite de 5 intentos de login fallidos con bloqueo de 15 minutos (RN-25). Al vencer la sesión (8 h), el sistema lleva al login con un aviso (D-47); esto cubre "controlar la validez de las sesiones". Contraseñas con hash y credenciales en `.env` |
+| RNF02 | Integridad | Cumple | Cierre y retiro en una transacción (`transaction.atomic`); claves foráneas `PROTECT` (no se borra nada con historial); prueba "un fallo del modelo no deshace el cierre". Respaldos con `scripts/respaldar.sh` y restauración todo o nada con `scripts/restaurar.sh` (D-48) |
+| RNF03 | Rendimiento | **Cumple** (medido el 16/11/2026) | Con 10 usuarios a la vez, el **100 %** de 1 800 solicitudes respondió en ≤ 3 s (percentil 95: 0,43 s; máximo: 0,94 s), sin errores. Con 30 usuarios, también el 100 % (percentil 95: 1,2 s). Script `scripts/medir_rendimiento.py`; informes en `docs/evidencias/` |
 | RNF04 | Trazabilidad | Cumple | Cada ejecución guarda la fecha, el disparador, el usuario, la semilla, las métricas, los centroides, el resultado por equipo y el origen de los datos (con el hash SHA-256 del dataset) |
 | RNF05 | Entorno reproducible | Cumple | `docker compose --profile app up -d` levanta base de datos, backend y frontend |
-| RNF06 | Usabilidad | Pendiente de medir | El diseño sigue el prototipo de Figma aprobado |
+| RNF06 | Usabilidad | Pendiente de aplicar | El diseño sigue el prototipo de Figma aprobado. Protocolo listo: 3 tareas y cuestionario SUS en `docs/evidencias/ficha_usabilidad.md` |
 | RNF07 | Procesamiento asíncrono | Cumple con cambio | El cálculo corre después de guardar. Si falla, el cierre no se deshace y la ejecución queda `FAILED` con su mensaje de error. No es asíncrono en sentido estricto (sin Celery) |
 
 ---
@@ -155,7 +221,7 @@ flowchart LR
 | Componente | Responsabilidad |
 |---|---|
 | Frontend (`frontend/`) | Pantallas, formularios y validación previa. **No tiene lógica de negocio** |
-| Backend (`backend/`) | Sesión y permisos, reglas de negocio (RN-01 a RN-24), API REST y modelo K-Means |
+| Backend (`backend/`) | Sesión y permisos, reglas de negocio (RN-01 a RN-25), API REST y modelo K-Means |
 | Base de datos | 14 tablas. Nada se borra: la eliminación es lógica (`is_active`) |
 | Módulo de riesgo (`apps/risk`) | Calcula variables, entrena o clasifica, asigna niveles y guarda la ejecución |
 
@@ -415,7 +481,7 @@ Los nombres exactos de los campos están en `backend/apps/*/models.py` y en el D
 ```bash
 docker compose --profile app up -d                          # levantar todo
 docker compose exec backend python manage.py seed_demo --reset   # cargar datos de demostración
-docker compose exec backend python manage.py test apps           # 94 pruebas
+docker compose exec backend python manage.py test apps           # 97 pruebas
 ```
 
 **Flujo general de uso:**
@@ -431,11 +497,11 @@ docker compose exec backend python manage.py test apps           # 94 pruebas
 
 ### 7.1 Pruebas automáticas
 
-**Resultado al 12/11/2026: 94 pruebas, todas correctas** (`Ran 94 tests ... OK`, 14,1 s). Son pruebas de integración del backend con Django y PostgreSQL: cada una llama a la API o al servicio real y revisa la respuesta y la base de datos.
+**Resultado al 16/11/2026: 97 pruebas, todas correctas** (`Ran 97 tests ... OK`, 16,8 s). Son pruebas de integración del backend con Django y PostgreSQL: cada una llama a la API o al servicio real y revisa la respuesta y la base de datos.
 
 | Módulo | Pruebas | Qué cubren |
 |---|---|---|
-| `users` | 25 | Login, CSRF, RN-01 a RN-06, cambio de contraseña, gestión de usuarios |
+| `users` | 28 | Login, límite de intentos (RN-25), CSRF, sesión (401), RN-01 a RN-06, cambio de contraseña, gestión de usuarios |
 | `infrastructure` | 22 | Laboratorios (RN-10), equipos (RN-11, RN-12, D-21, D-43), historial y permisos |
 | `incidents` | 26 | Registro (RN-13 a RN-16), cierre (RN-17 a RN-21), anulación (RN-22), modo técnico (RN-24), catálogo (RN-07 a RN-09) y reportes |
 | `risk` | 21 | Variables, entrenamiento, semilla fija, niveles, RN-23, Kaggle, fallos del modelo, dashboard |
@@ -453,7 +519,7 @@ Estados:
 |---|---|---|---|
 | CP01 | Login válido muestra funciones del rol | `test_login_correcto_devuelve_usuario_con_rol` | Cumple |
 | CP02 | Contraseña incorrecta rechazada | `test_rn01_mismo_mensaje_para_contrasena_incorrecta_y_correo_inexistente` | Cumple |
-| CP03 | Sin permiso o sin sesión: denegado | `test_rn06_tecnico_recibe_403_en_administracion`, `test_me_sin_sesion_es_rechazado` | Cumple con cambio (sesión, no token) |
+| CP03 | Sin permiso (403) o sin sesión (401): denegado | `test_rn06_tecnico_recibe_403_en_administracion`, `test_me_sin_sesion_es_rechazado`, `test_sin_sesion_responde_401` | Cumple con cambio (sesión, no token) |
 | CP04 | Registrar usuario con rol | `test_crear_usuario_normaliza_correo_y_guarda_hash` | Cumple |
 | CP05 | Cuenta desactivada no entra | `test_rn02_cuenta_desactivada_con_contrasena_correcta` | Cumple |
 | CP06 | Código de laboratorio duplicado rechazado | `test_codigo_duplicado_sin_distinguir_mayusculas` | Cumple |
@@ -481,17 +547,44 @@ Estados:
 | CP28 | Perfil propio | `test_me_con_sesion` | Cumple |
 | CP29 | Cambio de contraseña correcto | `test_cambio_correcto_mantiene_la_sesion_y_permite_entrar_con_la_nueva` | Cumple |
 | CP30 | Contraseña actual incorrecta | `test_contrasena_actual_incorrecta` | Cumple |
-| CP31 | Rendimiento ≤ 3 s, 95 % | — | No ejecutado |
+| CP31 | Rendimiento ≤ 3 s, 95 % | `scripts/medir_rendimiento.py` (10 usuarios, 20 rondas, 9 consultas) | **Cumple:** 100 % en ≤ 3 s, 0 errores |
 | CP32 | Docker Compose levanta todo | Verificado a mano: los 3 servicios "Up" y la API responde a través del frontend | Cumple |
-| CP33 | Usabilidad 4 de 5 | — | No ejecutado |
+| CP33 | Usabilidad 4 de 5 | Ficha `docs/evidencias/ficha_usabilidad.md` | Pendiente de aplicar |
 | CP34 *(nuevo)* | Administrador sin modo técnico no registra ni cierra; con el modo sí, a su nombre; el modo se apaga al iniciar sesión; un técnico no puede activarlo | `test_rn24_sin_modo_tecnico_el_administrador_no_registra_ni_cierra`, `test_rn24_con_modo_tecnico_registra_y_cierra_a_su_nombre`, `test_rn24_el_modo_se_apaga_al_iniciar_sesion_de_nuevo`, `test_rn24_solo_el_administrador_cambia_de_modo` | Cumple |
+| CP35 *(nuevo)* | 5 intentos fallidos bloquean el login 15 minutos, también con un correo inexistente; un login correcto reinicia el contador; otras cuentas no se afectan | `test_rn25_bloquea_tras_cinco_intentos_fallidos`, `test_rn25_correo_inexistente_se_bloquea_igual`, `test_rn25_un_login_correcto_reinicia_el_contador` | Cumple |
+| CP36 *(nuevo)* | Respaldar y restaurar la base sin perder datos | Verificado a mano el 16/11/2026: 327 incidencias y 3 873 resultados de riesgo antes y después de restaurar | Cumple |
 
-### 7.3 Lo que falta ejecutar
+### 7.3 Rendimiento (RNF03, CP31): medido
 
-- **CP31 (rendimiento):** medir los tiempos de respuesta de las rutas principales con varias peticiones a la vez y anotar el entorno (equipo, Docker). Se puede hacer con una herramienta de carga; avisar antes, porque requiere instalar algo.
-- **CP33 (usabilidad):** pedir a 5 personas que registren, consulten y cierren una incidencia sin ayuda, y anotar el resultado en una ficha.
+**Cómo se midió:** el script `scripts/medir_rendimiento.py` simula varios usuarios que inician sesión a la vez y repiten
+las 9 consultas más habituales: dashboard, lista de incidencias, historial y equipos, catálogos, laboratorios y reportes.
+Las peticiones pasan por el frontend, como desde el navegador. Usa solo Python estándar y no modifica datos.
+
+```bash
+NEXOLAB_PASSWORD=... python3 scripts/medir_rendimiento.py --usuarios 10 --rondas 20 --salida informe.md
+```
+
+**Entorno:** computadora de desarrollo (Linux, 12 núcleos) con Docker Compose y el servidor de desarrollo de Django.
+Datos de demostración: **432 equipos** y 327 incidencias, tres veces más equipos que los 142 que menciona la tesis.
+
+| Escenario | Solicitudes | Mediana | Percentil 95 | Máximo | ≤ 3 s | Errores | Resultado |
+|---|---|---|---|---|---|---|---|
+| 10 usuarios a la vez (meta de RNF03) | 1 800 | 142 ms | 425 ms | 938 ms | 100 % | 0 | **Cumple** |
+| 30 usuarios a la vez (margen) | 2 700 | 440 ms | 1 171 ms | 2 405 ms | 100 % | 0 | **Cumple** |
+
+Las consultas más pesadas son el dashboard y los reportes de 6 meses (alrededor de 350 ms de mediana con 10 usuarios).
+El detalle por consulta está en `docs/evidencias/rendimiento_10_usuarios.md` y `rendimiento_30_usuarios.md`.
+
+**Texto sugerido para la tesis:** "Se simularon 10 usuarios concurrentes realizando 1 800 consultas habituales sobre
+432 equipos. El 100 % respondió en menos de 3 segundos (percentil 95: 0,43 s), por lo que se cumple RNF03. Con 30
+usuarios concurrentes el sistema mantuvo el 100 % de respuestas bajo el umbral (percentil 95: 1,2 s)."
+
+### 7.4 Lo que falta ejecutar
+
+- **CP33 (usabilidad, RNF06):** aplicar `docs/evidencias/ficha_usabilidad.md` a 5 personas. Trae las 3 tareas de la
+  tesis con datos reales de la demostración, las reglas para el facilitador, el cuestionario SUS (con su cálculo y
+  sus referencias) y la tabla de resumen. Se cumple si 4 de 5 completan las tres tareas sin ayuda.
 - **Capturas:** tomar las de cada pantalla (sección 6.2) para las columnas "Resultado obtenido".
-
 ---
 
 ## 8. Datos de demostración
@@ -601,7 +694,7 @@ Centroides aprendidos de Kaggle (el perfil promedio de cada grupo):
 **Cumplimiento de objetivos:**
 - **Objetivo 1 (análisis y base de datos):**
   - se diseñó la base de datos v4 (14 tablas) en PostgreSQL;
-  - se definieron 24 reglas de negocio (RN-01 a RN-24).
+  - se definieron 25 reglas de negocio (RN-01 a RN-25).
 - **Objetivo 2 (módulos de gestión):**
   - registro, consulta, cierre y anulación de incidencias;
   - inventario y catálogo;

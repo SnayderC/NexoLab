@@ -61,18 +61,6 @@ export const router = createBrowserRouter([
           { path: 'usuarios', element: <UserListPage />, handle: { title: 'Usuarios' } },
         ],
       },
-      // Página temporal para revisar los componentes. No se incluye en `npm run build`.
-      ...(import.meta.env.DEV
-        ? [
-            {
-              path: 'dev/componentes',
-              handle: { title: 'Componentes' },
-              lazy: async () => ({
-                Component: (await import('../features/dev/pages/ComponentsPage')).default,
-              }),
-            },
-          ]
-        : []),
       { path: '*', element: <Navigate to="/" replace /> },
     ],
   },

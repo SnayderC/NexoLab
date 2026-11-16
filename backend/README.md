@@ -64,9 +64,9 @@ Base: `/api/v1/`. Autenticación por sesión de Django (cookie `sessionid`, `htt
 | Método y ruta | Acceso | Respuesta |
 |---|---|---|
 | `GET auth/csrf` | Público | 204 y la cookie `csrftoken` |
-| `POST auth/login` | Público | 200 con el usuario · 400 credenciales incorrectas · 403 cuenta desactivada |
+| `POST auth/login` | Público | 200 con el usuario · 400 credenciales incorrectas · 403 cuenta desactivada · 429 demasiados intentos (RN-25) |
 | `POST auth/logout` | Con sesión | 204 |
-| `GET auth/me` | Con sesión | 200 con el usuario · 403 sin sesión |
+| `GET auth/me` | Con sesión | 200 con el usuario · 401 sin sesión (D-47) |
 | `POST auth/technician-mode` | Administrador | 200 con el usuario y `technician_mode` · 400 si `enabled` no es true o false (RN-24, D-45) |
 | `POST auth/change-password` | Con sesión | 204 · 400 con los mensajes de validación |
 | `GET users` | Administrador | 200 con cada usuario, su rol, laboratorios a cargo y carga de trabajo · 403 técnico |
@@ -134,10 +134,10 @@ Toda petición que no sea `GET` debe enviar la cabecera `X-CSRFToken` con el val
 .venv/bin/python manage.py test apps
 ```
 
-- `apps/users/tests.py` (25): login, CSRF, sesión, cierre de sesión, cambio de contraseña, permiso de administrador
+- `apps/users/tests.py` (28): login, límite de intentos (RN-25), CSRF, sesión, cierre de sesión, cambio de contraseña, permiso de administrador
   y administración de usuarios.
 - `apps/infrastructure/tests.py` (22): laboratorios (RN-10) y equipos (RN-07, RN-11, RN-12, D-21), con RN-06.
 - `apps/risk/tests.py` (21): variables, algoritmo, RN-23, carga inicial con Kaggle, reuso del modelo, recálculo y dashboard.
 - `apps/incidents/tests.py` (26): registrar, listar, cerrar, retiro, numeración, recálculo al cerrar, anular, modo técnico (RN-24), catálogo de tipos y reportes.
 
-Total: 94 pruebas.
+Total: 97 pruebas. Sin sesión, cualquier ruta protegida responde 401 (D-47).

@@ -9,13 +9,14 @@ import type { User } from '../../types/user'
 // technician_mode no es columna de la BD: vive en la sesión del servidor (RN-24, D-45).
 export type SessionUser = User & { role: Role; technician_mode: boolean }
 
-export type AuthErrorCode = 'INVALID_CREDENTIALS' | 'ACCOUNT_DISABLED'
+export type AuthErrorCode = 'INVALID_CREDENTIALS' | 'ACCOUNT_DISABLED' | 'TOO_MANY_ATTEMPTS'
 
 export class AuthError extends Error {
   readonly code: AuthErrorCode
 
-  constructor(code: AuthErrorCode) {
-    super(code)
+  // message: el texto del backend cuando trae datos propios (los minutos de bloqueo de RN-25).
+  constructor(code: AuthErrorCode, message?: string) {
+    super(message ?? code)
     this.code = code
   }
 }
@@ -36,7 +37,8 @@ export async function login(email: string, password: string): Promise<SessionUse
   try {
     return await apiRequest<SessionUser>('/auth/login', { method: 'POST', body: { email, password } })
   } catch (error) {
-    // RN-01 y RN-02: el backend decide el mensaje; aquí solo se traduce a un código.
+    // RN-01, RN-02 y RN-25: el backend decide el mensaje; aquí solo se traduce a un código.
+    if (error instanceof ApiError && error.status === 429) throw new AuthError('TOO_MANY_ATTEMPTS', error.message)
     if (error instanceof ApiError && error.data.code === 'account_disabled') throw new AuthError('ACCOUNT_DISABLED')
     if (error instanceof ApiError && error.status === 400) throw new AuthError('INVALID_CREDENTIALS')
     throw error

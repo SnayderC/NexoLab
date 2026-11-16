@@ -10,6 +10,7 @@ from rest_framework.views import APIView
 
 from apps.infrastructure.models import Laboratory
 
+from . import login_attempts
 from .models import User
 from .permissions import TECHNICIAN_MODE_KEY, IsAdmin, is_technician_mode
 from .serializers import (
@@ -60,20 +61,27 @@ class LoginView(APIView):
 
         email = serializer.validated_data['email'].strip().lower()
         password = serializer.validated_data['password']
-        user = User.objects.select_related('role').filter(email__iexact=email).first()
 
+        # RN-25: con demasiados intentos fallidos no se revisa la contraseña, aunque sea correcta.
+        if minutes := login_attempts.minutes_locked(request, email):
+            unit = 'minuto' if minutes == 1 else 'minutos'
+            return Response(
+                {'detail': f'Demasiados intentos fallidos. Intenta de nuevo en {minutes} {unit}.',
+                 'code': 'too_many_attempts'},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+
+        user = User.objects.select_related('role').filter(email__iexact=email).first()
         if user is None:
             # Calcula un hash igual para que el tiempo de respuesta no revele si el correo existe.
             User().set_password(password)
+        if user is None or not user.check_password(password):
+            login_attempts.register_failure(request, email)
             return Response(
                 {'detail': INVALID_CREDENTIALS, 'code': 'invalid_credentials'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        if not user.check_password(password):
-            return Response(
-                {'detail': INVALID_CREDENTIALS, 'code': 'invalid_credentials'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        login_attempts.clear_failures(request, email)
         # RN-02: se revisa después de la contraseña para no revelar qué correos existen.
         if not user.is_active:
             return Response(

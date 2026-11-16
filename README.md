@@ -37,6 +37,9 @@ Abre http://localhost:5173. Las migraciones se aplican solas al arrancar el back
 | Recalcular el riesgo | `docker compose exec backend python manage.py recalculate_risk` |
 | Ejecutar las pruebas del backend | `docker compose exec backend python manage.py test apps` |
 | Apagar todo (los datos se conservan) | `docker compose --profile app down` |
+| Respaldar la base de datos | `sh scripts/respaldar.sh` (crea `respaldos/nexolab_AAAAMMDD_HHMM.sql`) |
+| Restaurar un respaldo (reemplaza todos los datos) | `sh scripts/restaurar.sh respaldos/<archivo>.sql` |
+| Medir el rendimiento (RNF03) | `NEXOLAB_PASSWORD=<DEMO_PASSWORD> python3 scripts/medir_rendimiento.py` |
 
 Los cambios en el código se recargan solos. Si cambias `requirements.txt` o `package.json`, vuelve a ejecutar
 `docker compose --profile app up -d --build`. Antes de usar esta opción, apaga el `runserver` y el `npm run dev`

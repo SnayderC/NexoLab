@@ -5,6 +5,7 @@ import { z } from 'zod'
 import Button from '../../../components/ui/Button'
 import FormField from '../../../components/ui/FormField'
 import Input from '../../../components/ui/Input'
+import Notice from '../../../components/ui/Notice'
 import PasswordInput from '../../../components/ui/PasswordInput'
 import { AuthError, type AuthErrorCode } from '../api'
 
@@ -15,17 +16,27 @@ const loginSchema = z.object({
 
 type LoginValues = z.infer<typeof loginSchema>
 
-// Mensajes de RN-01 y RN-02 (sección 9).
+// Mensajes de RN-01, RN-02 y RN-25 (sección 9).
 const authErrorMessages: Record<AuthErrorCode, string> = {
   INVALID_CREDENTIALS: 'Correo o contraseña incorrectos',
   ACCOUNT_DISABLED: 'Tu cuenta está desactivada. Contacta al administrador.',
+  TOO_MANY_ATTEMPTS: 'Demasiados intentos fallidos. Intenta de nuevo más tarde.',
+}
+
+function messageFor(error: AuthError) {
+  // El bloqueo (RN-25) trae del backend cuántos minutos faltan.
+  return error.code === 'TOO_MANY_ATTEMPTS' && error.message !== error.code
+    ? error.message
+    : authErrorMessages[error.code]
 }
 
 type LoginFormProps = {
   onLogin: (email: string, password: string) => Promise<void>
+  // D-47: se llegó al login porque la sesión venció.
+  sessionExpired?: boolean
 }
 
-function LoginForm({ onLogin }: LoginFormProps) {
+function LoginForm({ onLogin, sessionExpired = false }: LoginFormProps) {
   const [authError, setAuthError] = useState<string | null>(null)
   const {
     register,
@@ -46,9 +57,7 @@ function LoginForm({ onLogin }: LoginFormProps) {
       await onLogin(values.email, values.password)
     } catch (error) {
       setAuthError(
-        error instanceof AuthError
-          ? authErrorMessages[error.code]
-          : 'No se pudo iniciar sesión. Inténtalo de nuevo.',
+        error instanceof AuthError ? messageFor(error) : 'No se pudo iniciar sesión. Inténtalo de nuevo.',
       )
     }
   }
@@ -59,6 +68,8 @@ function LoginForm({ onLogin }: LoginFormProps) {
         <h1 className="text-2xl leading-8 font-semibold">Iniciar sesión</h1>
         <p className="leading-5 text-text-muted">Ingresa con tu correo y contraseña.</p>
       </div>
+
+      {sessionExpired && !authError && <Notice>Tu sesión expiró. Vuelve a iniciar sesión para continuar.</Notice>}
 
       {authError && (
         <div role="alert" className="rounded-lg bg-danger-bg p-3 leading-5 text-danger">

@@ -3,7 +3,7 @@
 > **Qué es este documento:** la referencia única del proyecto para desarrollar en VS Code. Sirve para el equipo y también como contexto para asistentes de IA (GitHub Copilot, Claude, etc.).
 > **Dónde va:** en el repositorio, en `docs/CONTEXTO_DESARROLLO.md`.
 > **Regla de oro:** si algo del código contradice este documento, se corrige uno de los dos y se registra en la sección 17 (Decisiones).
-> **Última actualización:** 12/11/2026 · Cambios pedidos en la revisión: modo técnico del administrador (RN-24, D-45) y "Solución aplicada" al cerrar (D-44).
+> **Última actualización:** 16/11/2026 · Calidad: límite de intentos de login (RN-25, D-46), aviso de sesión vencida (D-47), respaldos (D-48) y se quitó la página de prueba de componentes (D-49).
 
 ---
 
@@ -162,8 +162,12 @@ nexolab/
 │   ├── GUIA_DEL_PROYECTO.md      # explicación del proyecto y glosario en español
 │   ├── GUION_DEMOSTRACION.md     # guion para presentar el sistema
 │   ├── NEXOLAB_BD_v4.dbml        # modelo de datos aprobado
+│   ├── DOCUMENTO_PARA_TESIS.md   # lo construido, para redactar la tesis
+│   ├── evidencias/               # informes de rendimiento y ficha de usabilidad (D-50)
 │   └── PROMPT_FIGMA_MAKE_NEXOLAB.md  # datos de demostración de referencia
 ├── docker-compose.yml            # base de datos; con --profile app, también backend y frontend (D-41)
+├── scripts/                      # respaldar.sh y restaurar.sh (D-48); medir_rendimiento.py (D-50)
+├── respaldos/                    # archivos de respaldo (no se suben a Git)
 ├── .env.example
 ├── .gitignore
 ├── README.md
@@ -293,8 +297,9 @@ Cada regla se aplica en el **backend**. El frontend puede validarlas antes para 
 - **RN-03** No hay registro público ni recuperación de contraseña por correo. El administrador crea usuarios y restablece contraseñas.
 - **RN-04** Las contraseñas cumplen los 4 validadores por defecto de Django: mínimo 8 caracteres, no solo números, no parecida a los datos del usuario y no común.
 - **RN-05** Un usuario no puede desactivarse a sí mismo.
-- **RN-06** Un técnico que intenta acceder a una función de administración recibe un error 403 (backend) y la pantalla "Acceso restringido" (frontend).
+- **RN-06** Un técnico que intenta acceder a una función de administración recibe un error 403 (backend) y la pantalla "Acceso restringido" (frontend). Sin sesión la respuesta es 401 y el frontend lleva al login con el aviso "Tu sesión expiró" (D-47).
 - **RN-24** Registrar y cerrar incidencias es trabajo del técnico. El administrador solo puede hacerlo con el **modo técnico** activo (`POST auth/technician-mode`); sin él, la API responde 403 "Activa el modo técnico para registrar o cerrar incidencias.". El modo se guarda en la sesión, empieza apagado en cada inicio de sesión y lo que se registra queda a nombre del administrador (RN-15). Ver D-45.
+- **RN-25** Tras 5 intentos de login fallidos con el mismo correo desde la misma dirección, el login se bloquea 15 minutos (429: "Demasiados intentos fallidos. Intenta de nuevo en N minutos."), aunque la contraseña sea correcta. Se bloquea igual si el correo no existe (RN-01). Un login correcto reinicia el contador. Los valores se ajustan en `backend/.env` (`LOGIN_MAX_FAILED_ATTEMPTS`, `LOGIN_LOCKOUT_MINUTES`). Ver D-46.
 
 ### Catálogo e infraestructura
 
@@ -514,7 +519,7 @@ Base: `/api/v1/`. JSON en `snake_case`. Todos los endpoints requieren autenticac
 
 Los marcados con ✅ ya están programados y probados (detalle en `backend/README.md`).
 
-**Errores:** códigos HTTP estándar (400 validación, 403 sin sesión o sin permiso (ver D-25), 404 no existe, 409 conflicto de regla de negocio). Cuerpo: `{"detail": "mensaje en español"}` o, en validaciones, `{"campo": ["mensaje"]}`. Nunca se devuelven trazas internas.
+**Errores:** códigos HTTP estándar (400 validación, 401 sin sesión (D-47), 403 sin permiso, 404 no existe, 409 conflicto de regla de negocio, 429 demasiados intentos de login (RN-25)). Cuerpo: `{"detail": "mensaje en español"}` o, en validaciones, `{"campo": ["mensaje"]}`. Nunca se devuelven trazas internas.
 
 ---
 
@@ -617,6 +622,14 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 - [x] "Solución aplicada" y "Resultado de la atención" al cerrar, en lugar de "Diagnóstico" y "Acción tomada" (D-44).
 - [x] Modo técnico del administrador, controlado también en el backend (RN-24, D-45), con 4 pruebas nuevas (94 en total).
 
+### Fase 10 — Calidad (16/11/2026)
+- [x] Límite de intentos de login (RN-25, D-46), con 3 pruebas.
+- [x] 401 sin sesión y aviso "Tu sesión expiró" en el login (D-47). 97 pruebas en total.
+- [x] Respaldos de la base (D-48).
+- [x] Se quitó la página de prueba de componentes `features/dev` (D-49).
+- [x] RNF03 medido: cumple con 10 y 30 usuarios (D-50).
+- [ ] RNF06: aplicar `docs/evidencias/ficha_usabilidad.md` a 5 participantes (lo hace el equipo).
+
 ---
 
 ## 16. Seguridad y calidad
@@ -630,6 +643,8 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 - Validación de entradas en el backend aunque el frontend ya valide.
 - Mensajes de error genéricos en el login y sin trazas internas en las respuestas.
 - No guardar tokens o datos sensibles en `localStorage`.
+- Límite de intentos de login (RN-25) y aviso de sesión vencida (D-47).
+- Respaldos con `scripts/respaldar.sh` y `scripts/restaurar.sh`; la carpeta `respaldos/` no se sube (D-48).
 
 ### Antes de cada commit
 
@@ -668,7 +683,7 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 | D-22 | Los códigos de los 32 tipos del catálogo y la carga de trabajo de los usuarios (incidencias registradas y cerradas) se copian del Figma en `mocks/` | Son datos de demostración; el backend calculará la carga de trabajo con las incidencias reales |
 | D-23 | En el Dashboard, la tabla "Incidencias abiertas" va antes de las columnas de riesgo (cambia el orden del Figma 2.0) | Retroalimentación de la tutora: lo primero que se atiende son las incidencias abiertas |
 | D-24 | Se agregan los componentes Software, Red / Internet y Otro a `cat_components`; con "Otro", la descripción debe tener al menos 20 caracteres | Retroalimentación de la tutora: hay fallas que no son de una pieza física (ej.: sistema operativo). Se mantiene una lista cerrada para poder contar por componente, y el detalle va en la descripción. Son filas del catálogo: el DBML no cambia |
-| D-25 | Autenticación con la sesión de Django: cookie `sessionid` `httpOnly` (8 horas) y protección CSRF. El frontend pide `GET auth/csrf`, lee la cookie `csrftoken` y la envía en la cabecera `X-CSRFToken`. En desarrollo, Vite reenvía `/api` a Django (`changeOrigin: false`), así que todo funciona en un solo origen y sin CORS. Sin sesión, la API responde 403 (no 401) | Más segura que un token JWT en `localStorage` (JavaScript no puede leer la cookie) y requiere menos código. DRF responde 403 con autenticación por sesión porque no hay cabecera `WWW-Authenticate`; el frontend trata 401 y 403 igual al pedir el usuario actual |
+| D-25 | Autenticación con la sesión de Django: cookie `sessionid` `httpOnly` (8 horas) y protección CSRF. El frontend pide `GET auth/csrf`, lee la cookie `csrftoken` y la envía en la cabecera `X-CSRFToken`. En desarrollo, Vite reenvía `/api` a Django (`changeOrigin: false`), así que todo funciona en un solo origen y sin CORS. Sin sesión, la API responde 403 (no 401). *(Actualizada por D-47: ahora responde 401)* | Más segura que un token JWT en `localStorage` (JavaScript no puede leer la cookie) y requiere menos código. DRF responde 403 con autenticación por sesión porque no hay cabecera `WWW-Authenticate`; el frontend trata 401 y 403 igual al pedir el usuario actual |
 | D-26 | La restricción única de `hst_kmeans_centroids` se llama `uq_hst_kmc_run_cluster` en lugar del nombre del DBML | Django limita los nombres de restricciones a 30 caracteres y el del DBML tiene 35. Las columnas y la regla son las mismas. **Resuelto (29/10/2026):** con la aprobación del autor, el DBML usa también el nombre corto |
 | D-27 | El backend se desarrolla con Python 3.14 | Es la versión instalada en el equipo de desarrollo y Django 5.2.18 la soporta (desde 5.2.8). El código no usa nada exclusivo de 3.14, así que 3.12 sigue funcionando |
 | D-28 | *(Actualizada por D-42)* Comando `seed_demo` (`apps/core`) con la contraseña de `DEMO_PASSWORD` y los mismos identificadores que `frontend/src/mocks/`. Por ahora carga catálogos, usuarios, laboratorios y equipos; las incidencias y el riesgo se cargan en las fases 5 y 6 | Ninguna credencial en el código. Mismos identificadores para que las pantallas que aún usan datos de demostración coincidan con la API |
@@ -689,6 +704,11 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 | D-43 | RN-11 acepta cualquier código de laboratorio (`H106A`, `LAB-2`) y números de 2 o 3 cifras: `^[A-Z0-9][A-Z0-9-]{0,9}-[A-Z]{2,5}-\d{2,3}$`. D-21 sigue exigiendo que el código empiece con el laboratorio y el tipo elegidos | El Bloque H tiene H106A y H106B, y el sistema apunta a laboratorios de cómputo en general, algunos con más de 99 equipos |
 | D-44 | Al cerrar una incidencia, "Diagnóstico" pasa a llamarse **"Solución aplicada"** ("Describe qué se hizo para resolver la incidencia") y "Acción tomada" pasa a **"Resultado de la atención"**. En el historial del equipo, las columnas son "Solución aplicada" y "Resultado". Solo cambian los textos visibles: las columnas `diagnosis` y `resolution_action_id` y el DBML no cambian | Pedido de la docente en la revisión (12/11/2026): el diagnóstico es una etapa anterior a la resolución. Los nombres siguen a ITIL (resolución y código de cierre) y a herramientas como ServiceNow (*Resolution notes* y *Resolution code*). Renombrar la columna obligaría a cambiar el DBML aprobado sin cambiar lo que se guarda |
 | D-45 | **Modo técnico del administrador** (RN-24). El modo se guarda en la sesión de Django (`technician_mode`), se cambia con `POST auth/technician-mode` (solo administrador) y empieza apagado en cada inicio de sesión. El permiso `CanOperateIncidents` exige el modo para registrar y cerrar. En la interfaz: opción "Activar modo técnico / Volver al modo administrador" en el menú de usuario, etiqueta "Modo técnico" en la barra superior, y cada modo muestra solo su menú (el técnico no ve Administración, Anular ni Recalcular; el normal no ve Registrar ni Cerrar, y las abiertas se abren con "Ver"). Si se entra por URL a una sección del otro modo, "Acceso restringido" ofrece cambiar de modo. Reemplaza la regla de no programar "Ver como técnico" | Pedido de la docente en la revisión (12/11/2026): el administrador no debe tener las funciones del técnico mezcladas con las suyas. Guardarlo en la sesión (y no en una columna) evita cambiar el DBML; controlarlo en el backend cumple la sección 3 ("ocultar un botón no es seguridad") |
+| D-46 | Límite de intentos de login (RN-25) con la caché de Django (`apps/users/login_attempts.py`), sin dependencias nuevas: 5 fallos con el mismo correo desde la misma dirección bloquean 15 minutos (configurable en `.env`). El bloqueo se revisa antes de la contraseña y aplica también a correos inexistentes | Sin límite, cualquiera puede probar contraseñas sin parar. Se cuenta por correo + dirección para que un tercero no pueda bloquear desde otra computadora la cuenta de alguien más. **Límite conocido:** en desarrollo todas las peticiones llegan por el proxy de Vite con la misma dirección, así que el bloqueo es, en la práctica, por correo. La caché en memoria se borra al reiniciar el backend; con varios servidores haría falta una caché compartida |
+| D-47 | Sin sesión, la API responde **401** (`apps/users/authentication.py`, cabecera `WWW-Authenticate: Session`, que no abre la ventana de contraseña del navegador). En el frontend, `apiClient` avisa a `AuthProvider` ante un 401 (salvo en las rutas de la propia sesión): se olvida al usuario, se borra la caché y el login muestra "Tu sesión expiró. Vuelve a iniciar sesión para continuar."; al entrar vuelve a la pantalla anterior. Actualiza D-25 | Antes, al vencer la sesión con la página abierta, las pantallas mostraban errores. Con 401 se distingue "la sesión venció" (lleva al login) de "no tienes permiso" (403) |
+| D-48 | Respaldos con `scripts/respaldar.sh` (`pg_dump --clean --if-exists` dentro del contenedor `db`, archivo `respaldos/nexolab_AAAAMMDD_HHMM.sql`) y `scripts/restaurar.sh` (pide confirmación y restaura en una sola transacción: si algo falla, no cambia nada). `respaldos/` está en `.gitignore` | Los respaldos son parte de la fiabilidad (ISO 25010). No se instala nada: se usan las herramientas de PostgreSQL del contenedor. Contienen datos reales (correos y hashes de contraseñas), por eso no se suben |
+| D-49 | Se eliminó `frontend/src/features/dev/` (página `/dev/componentes` con datos copiados del Figma para revisar los componentes) | Solo existía en desarrollo y ya no se usa. Evita que un revisor la confunda con datos "quemados" (la regla es que los datos vienen de la API) |
+| D-50 | RNF03 se mide con `scripts/medir_rendimiento.py`, que usa solo la biblioteca estándar de Python (hilos y `urllib`): varios usuarios inician sesión y repiten 9 consultas habituales a través del frontend. Solo hace consultas, no cambia datos. Resultado del 16/11/2026, con 432 equipos: 10 usuarios, 100 % ≤ 3 s (percentil 95: 0,43 s); 30 usuarios, 100 % ≤ 3 s (percentil 95: 1,2 s). Informes en `docs/evidencias/`. La prueba de usabilidad (RNF06) tiene su protocolo con el cuestionario SUS en `docs/evidencias/ficha_usabilidad.md` | Medir sin instalar herramientas de carga (sección 4). Se mide por el frontend para incluir el proxy, como un usuario real. La medición usa el servidor de desarrollo, así que en producción el resultado sería igual o mejor |
 
 ---
 

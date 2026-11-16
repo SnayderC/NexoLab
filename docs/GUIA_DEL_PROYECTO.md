@@ -39,7 +39,7 @@ El caso de origen es el Bloque H de la UNEMI, pero el sistema sirve para **cualq
 | Pieza | Nombre técnico | Qué hace | Analogía |
 |---|---|---|---|
 | **Frontend** | React + TypeScript | Lo que la persona ve y usa: pantallas, botones, formularios. **No toma decisiones**: muestra datos y revisa los formularios para avisar errores rápido | El mesero: toma el pedido y lo lleva |
-| **Backend** | Django + Django REST Framework | Aplica **todas las reglas** (RN-01 a RN-24), decide quién puede hacer qué, calcula el riesgo con K-Means y guarda los datos | La cocina: decide qué se puede preparar y lo prepara |
+| **Backend** | Django + Django REST Framework | Aplica **todas las reglas** (RN-01 a RN-25), decide quién puede hacer qué, calcula el riesgo con K-Means y guarda los datos | La cocina: decide qué se puede preparar y lo prepara |
 | **Base de datos** | PostgreSQL | Guarda todo de forma permanente: usuarios, equipos, incidencias, resultados del modelo | La despensa |
 
 **¿Cómo se comunican?** El frontend le pide cosas al backend por una **API**: un conjunto de direcciones como
@@ -213,6 +213,11 @@ modificó). Además, Django crea unas tablas propias para funcionar (sesiones y 
 - Cada endpoint revisa los permisos en el backend (RN-06).
 - Quien registra o cierra una incidencia se toma de la sesión, nunca del formulario (RN-15).
 - No hay contraseñas en el código: todo está en archivos `.env`, que no se suben a GitHub.
+- **Límite de intentos** (RN-25): tras 5 contraseñas incorrectas con el mismo correo, el login se bloquea 15 minutos.
+  Así nadie puede adivinar contraseñas probando sin parar.
+- **Sesión vencida:** si la sesión termina con la página abierta, el sistema lleva al login con el aviso
+  "Tu sesión expiró" y, al entrar, vuelve a la pantalla anterior (D-47).
+- **Respaldos:** `sh scripts/respaldar.sh` guarda una copia de la base; `sh scripts/restaurar.sh` la recupera (D-48).
 
 ---
 
@@ -220,7 +225,7 @@ modificó). Además, Django crea unas tablas propias para funcionar (sesiones y 
 
 | Qué | Comando | Resultado esperado |
 |---|---|---|
-| Pruebas del backend | `python manage.py test apps` | 94 pruebas, todas OK |
+| Pruebas del backend | `python manage.py test apps` | 97 pruebas, todas OK |
 | Revisión del código del frontend | `npm run lint` | Sin errores |
 | Versión final del frontend | `npm run build` | Termina sin errores |
 
@@ -233,7 +238,7 @@ modificó). Además, Django crea unas tablas propias para funcionar (sesiones y 
 | Arrancar el sistema | [README.md](../README.md) |
 | Presentar el sistema | [GUION_DEMOSTRACION.md](GUION_DEMOSTRACION.md) |
 | Saber por qué se decidió algo | Sección 17 de [CONTEXTO_DESARROLLO.md](CONTEXTO_DESARROLLO.md) (D-01 a D-43) |
-| Las reglas de negocio | Sección 9 de `CONTEXTO_DESARROLLO.md` (RN-01 a RN-24) |
+| Las reglas de negocio | Sección 9 de `CONTEXTO_DESARROLLO.md` (RN-01 a RN-25) |
 | El modelo K-Means en detalle | Sección 10 de `CONTEXTO_DESARROLLO.md` |
 | Las tablas | [NEXOLAB_BD_v4.dbml](NEXOLAB_BD_v4.dbml) |
 | Los endpoints | [backend/README.md](../backend/README.md) |
