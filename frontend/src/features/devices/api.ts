@@ -201,3 +201,16 @@ export async function updateDevice(
 ): Promise<void> {
   await apiRequest(`/devices/${id}`, { method: 'PATCH', body: input })
 }
+
+// El equipo tiene incidencias: no se anula, se retira (RN-26).
+export class DeviceHasIncidentsError extends Error {}
+
+// RN-26 (D-56): anula un equipo registrado por error (solo administrador y sin incidencias).
+export async function voidDevice(id: number): Promise<void> {
+  try {
+    await apiRequest(`/devices/${id}/void`, { method: 'POST' })
+  } catch (error) {
+    if (error instanceof ApiError && error.data.code === 'has_incidents') throw new DeviceHasIncidentsError(error.message)
+    throw error
+  }
+}

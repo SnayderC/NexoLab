@@ -159,7 +159,11 @@ class DeviceCreateSerializer(serializers.ModelSerializer):
         code = value.strip().upper()
         if not DEVICE_CODE_PATTERN.match(code):
             raise serializers.ValidationError(FORMAT_MESSAGE)
-        if Device.objects.filter(code__iexact=code).exists():
+        existing = Device.objects.filter(code__iexact=code).first()
+        if existing and not existing.is_active:
+            # RN-26: el código de un equipo anulado queda reservado (es único en la base y figura en la bitácora).
+            raise serializers.ValidationError(f'El código {code} perteneció a un equipo anulado. Usa otro número.')
+        if existing:
             raise serializers.ValidationError(f'Ya existe un equipo con el código {code}')
         return code
 

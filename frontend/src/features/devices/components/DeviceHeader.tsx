@@ -14,7 +14,7 @@ function DeviceHeader({ device, onRegisterIncident }: DeviceHeaderProps) {
   const isRetired = device.status === 'RETIRED'
 
   return (
-    <section className="flex items-center gap-6 rounded-lg border border-border-subtle bg-surface p-6">
+    <section className="flex flex-col gap-6 rounded-lg lg:flex-row lg:items-center border border-border-subtle bg-surface p-6">
       <div className="flex min-w-0 flex-1 flex-col gap-2 text-text-muted">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-semibold text-text">{device.code}</h1>
@@ -29,7 +29,7 @@ function DeviceHeader({ device, onRegisterIncident }: DeviceHeaderProps) {
       </div>
 
       {onRegisterIncident && (
-        <div className="flex w-90 shrink-0 flex-col items-end gap-2">
+        <div className="flex w-full shrink-0 flex-col items-end gap-2 lg:w-90">
           {/* RN-13: no se registran incidencias en equipos retirados. */}
           <Button
             variant="primary"

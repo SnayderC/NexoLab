@@ -23,11 +23,13 @@ Solo necesitas Docker. Los comandos se ejecutan desde la raíz del repositorio.
 ```bash
 cp .env.example .env                  # escribe una contraseña en POSTGRES_PASSWORD
 cp backend/.env.example backend/.env  # completa SECRET_KEY y DEMO_PASSWORD (DATABASE_URL lo pone Docker)
-docker compose --profile app up -d --build   # base de datos, backend y frontend
+docker compose --profile app up -d --build   # base de datos, backend, frontend, Redis y Celery (worker y beat)
 docker compose exec backend python manage.py seed_demo   # solo la primera vez: datos de demostración
 ```
 
-Abre http://localhost:5173. Las migraciones se aplican solas al arrancar el backend.
+Abre http://localhost:5173. Las migraciones se aplican solas al arrancar el backend. El *worker* de Celery calcula el
+riesgo en segundo plano y Celery Beat lo recalcula cada 15 minutos (D-55); sus mensajes se ven con
+`docker compose logs -f worker beat`.
 
 | Para… | Comando |
 |---|---|
@@ -36,10 +38,13 @@ Abre http://localhost:5173. Las migraciones se aplican solas al arrancar el back
 | Volver a los datos de demostración | `docker compose exec backend python manage.py seed_demo --reset` |
 | Recalcular el riesgo | `docker compose exec backend python manage.py recalculate_risk` |
 | Ejecutar las pruebas del backend | `docker compose exec backend python manage.py test apps` |
+| Ejecutar las pruebas del frontend | `cd frontend && npm test` |
 | Apagar todo (los datos se conservan) | `docker compose --profile app down` |
 | Respaldar la base de datos | `sh scripts/respaldar.sh` (crea `respaldos/nexolab_AAAAMMDD_HHMM.sql`) |
 | Restaurar un respaldo (reemplaza todos los datos) | `sh scripts/restaurar.sh respaldos/<archivo>.sql` |
 | Medir el rendimiento (RNF03) | `NEXOLAB_PASSWORD=<DEMO_PASSWORD> python3 scripts/medir_rendimiento.py` |
+| Analizar el número de grupos k (codo y silueta) | `docker compose exec backend python manage.py analizar_k --salida /app/_k` (los archivos quedan en `backend/_k/`) |
+| Ver el trabajo en segundo plano (Celery) | `docker compose logs -f worker beat` |
 
 Los cambios en el código se recargan solos. Si cambias `requirements.txt` o `package.json`, vuelve a ejecutar
 `docker compose --profile app up -d --build`. Antes de usar esta opción, apaga el `runserver` y el `npm run dev`
@@ -67,6 +72,10 @@ cp .env.example .env          # completa SECRET_KEY, DATABASE_URL y DEMO_PASSWOR
 .venv/bin/python manage.py migrate
 .venv/bin/python manage.py seed_demo
 .venv/bin/python manage.py runserver   # API en http://localhost:8000/api/v1/
+# Sin REDIS_URL, el riesgo se calcula en el momento en lugar de en segundo plano (D-55).
+# Para probar Celery en esta opción: docker compose --profile app up -d redis, agrega
+# REDIS_URL=redis://localhost:6380/0 a .env y ejecuta en otras terminales
+# .venv/bin/celery -A config worker -l info   y   .venv/bin/celery -A config beat -l info
 ```
 
 En Windows, cambia `.venv/bin/` por `.venv\Scripts\`.
@@ -96,11 +105,16 @@ Los crea `seed_demo`. Todos usan la contraseña definida en `DEMO_PASSWORD` (`ba
 | Parte | Estado |
 |---|---|
 | Interfaz de las 6 páginas del Figma | Lista |
-| Base de datos (14 tablas del modelo v4) | Lista, con migraciones |
+| Base de datos (15 tablas del modelo v4.1) | Lista, con migraciones |
 | Inicio de sesión, sesión, cierre de sesión y cambio de contraseña | Conectados a la API real |
 | Todas las pantallas (dashboard, incidencias, reportes, equipos, laboratorios, catálogo, usuarios, perfil) | Conectadas a la API real |
 | Modelo K-Means (carga inicial con Kaggle; recálculo manual, al cerrar incidencias y al cambiar el catálogo) | Listo |
 | Docker Compose con base de datos, backend y frontend (perfil `app`) | Listo |
+| Modo técnico, límite de intentos de login, sesión vencida, respaldos y bitácora | Listos |
+| K-Means en segundo plano con Celery y Redis, recálculo cada 15 minutos | Listo |
+| Anular equipo registrado por error y análisis de k (codo y silueta) | Listos |
+| Adaptación a tablet (768 a 1439 px) | Lista |
+| Pruebas: 111 del backend y 19 del frontend | Pasan |
 | Documentación final y guion de la demostración (fase 8) | Listo |
 
 El detalle de cada fase está en la sección 15 de `docs/CONTEXTO_DESARROLLO.md`.
@@ -109,5 +123,5 @@ El detalle de cada fase está en la sección 15 de `docs/CONTEXTO_DESARROLLO.md`
 
 ```bash
 cd backend && .venv/bin/python manage.py check && .venv/bin/python manage.py test apps
-cd frontend && npm run lint && npm run build
+cd frontend && npm run lint && npm test && npm run build
 ```

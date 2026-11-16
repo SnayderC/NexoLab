@@ -23,6 +23,8 @@ type TableProps<T> = {
   footer?: ReactNode
   // Clases extra para una fila, por ejemplo para resaltar la recién registrada.
   getRowClassName?: (row: T) => string
+  // Ancho mínimo en tablet (D-51), como clase completa de Tailwind. Por defecto, 720 px.
+  tabletMinWidthClass?: string
 }
 
 const headerClasses = {
@@ -38,6 +40,8 @@ const cellClasses = {
 }
 
 // Encabezado fijo bajo la barra superior (top-16) y pie opcional.
+// D-51: por debajo de 1440 px la tabla conserva un ancho mínimo y se desplaza de lado dentro de su caja, en lugar
+// de cortar columnas; ahí el encabezado ya no queda fijo al bajar (con 1440 px o más, igual que el Figma).
 function Table<T>({
   columns,
   rows,
@@ -48,6 +52,7 @@ function Table<T>({
   emptyState,
   footer,
   getRowClassName,
+  tabletMinWidthClass = 'max-xl:min-w-180',
 }: TableProps<T>) {
   return (
     <div className="overflow-clip rounded-lg border border-border-subtle bg-surface">
@@ -56,7 +61,8 @@ function Table<T>({
           <h2 className="text-base font-semibold">{title}</h2>
         </div>
       )}
-      <table className="w-full border-collapse text-left">
+      <div className="max-desktop:overflow-x-auto">
+      <table className={`w-full border-collapse text-left ${tabletMinWidthClass}`}>
         <caption className="sr-only">{title ?? caption}</caption>
         {/* El fondo en thead tapa la costura de 1 px entre las celdas fijas. */}
         <thead className="bg-background">
@@ -65,7 +71,7 @@ function Table<T>({
               <th
                 key={column.key}
                 scope="col"
-                className={`sticky top-16 z-1 bg-background font-medium text-text-muted uppercase ${headerClasses[variant]} ${column.className ?? ''}`}
+                className={`z-1 bg-background desktop:sticky desktop:top-16 font-medium text-text-muted uppercase ${headerClasses[variant]} ${column.className ?? ''}`}
               >
                 {column.header}
               </th>
@@ -90,6 +96,7 @@ function Table<T>({
           )}
         </tbody>
       </table>
+      </div>
       {footer && <div className="border-t border-border-subtle">{footer}</div>}
     </div>
   )

@@ -2,6 +2,7 @@
 // NEXOLAB - Modelo Entidad-Relación v4
 // Cambios v4 (retroalimentación de la docente): prefijos por tipo de tabla,
 // campos de control de registro en todas las tablas y nomenclatura explícita.
+// v4.1 (16/11/2026, aprobado por el autor, D-52): tabla hst_audit_logs, bitácora de cambios administrativos.
 // Importable en dbdiagram.io
 // =====================================================================
 
@@ -15,7 +16,7 @@ Project NexoLab {
   - **cat_ Catálogo:** listas de opciones que casi no cambian (estados, roles, tipos).
   - **mst_ Maestra:** entidades principales con vida propia (usuarios, laboratorios, equipos).
   - **trx_ Transaccional:** eventos que ocurren día a día (incidencias).
-  - **hst_ Histórica:** resultados del modelo K-Means, que se acumulan y no se modifican.
+  - **hst_ Histórica:** registros que se acumulan y no se modifican: resultados del modelo K-Means y bitácora de cambios.
 
   ## Campos de control de registro (en todas las tablas)
   - **is_active:** estado del registro. false = registro anulado (eliminación lógica, nunca se borra la fila).
@@ -197,7 +198,7 @@ Table trx_incidents [headercolor: #0F766E] {
 
 Table hst_kmeans_runs [headercolor: #B45309] {
   id bigint [pk, increment]
-  trigger_type varchar(30) [not null, note: 'INITIAL_LOAD | INCIDENT_CLOSED | CATALOG_CHANGE | MANUAL']
+  trigger_type varchar(30) [not null, note: 'INITIAL_LOAD | INCIDENT_CLOSED | CATALOG_CHANGE | MANUAL | SCHEDULED | DEVICE_CHANGE (v4.1, D-55)']
   triggered_by_id integer [ref: > mst_users.id, note: 'Vacío si lo lanzó el sistema']
   incident_id bigint [ref: > trx_incidents.id, note: 'Incidencia cuyo cierre disparó el cálculo']
   run_status varchar(15) [not null, note: 'RUNNING | COMPLETED | FAILED']
@@ -260,12 +261,34 @@ Table hst_device_risk_results [headercolor: #B45309] {
 }
 
 // =====================================================================
+// BITÁCORA (hst_) — v4.1, D-52
+// =====================================================================
+Table hst_audit_logs [headercolor: #B45309] {
+  id bigint [pk, increment]
+  user_id integer [not null, ref: > mst_users.id, note: 'Quién hizo el cambio']
+  action varchar(30) [not null, note: 'CREATE | UPDATE | ACTIVATE | DEACTIVATE | RESET_PASSWORD | RETIRE | CATALOG_SELECTION | VOID | TECHNICIAN_MODE_ON | TECHNICIAN_MODE_OFF']
+  entity_type varchar(30) [not null, note: 'USER | LABORATORY | DEVICE | DEVICE_TYPE | INCIDENT']
+  entity_id bigint [note: 'Id del elemento cambiado. Vacío al guardar la selección del catálogo']
+  entity_label varchar(150) [not null, note: 'Código, correo o número del elemento al momento del cambio']
+  changes jsonb [note: '{"campo": [antes, después]}. Nunca guarda contraseñas']
+  is_active boolean [not null, default: true, note: 'Estado del registro']
+  created_at timestamptz [not null, default: `now()`, note: 'Momento del cambio']
+  updated_at timestamptz [not null, default: `now()`]
+  Indexes {
+    created_at [name: 'idx_hst_audit_created']
+    (entity_type, entity_id) [name: 'idx_hst_audit_entity']
+  }
+  Note: 'Bitácora de cambios administrativos: quién hizo qué, sobre qué elemento y qué cambió. Solo se agregan filas.'
+}
+
+// =====================================================================
 // MÓDULOS
 // =====================================================================
 
 TableGroup usuarios_y_seguridad {
   cat_roles
   mst_users
+  hst_audit_logs
 }
 
 TableGroup infraestructura {

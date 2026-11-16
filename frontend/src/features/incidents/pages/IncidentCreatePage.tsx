@@ -43,7 +43,7 @@ function IncidentCreatePage() {
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-2xl font-semibold">Registrar incidencia</h1>
-      <div className="flex items-start gap-6">
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
         {/* Con ?equipo= se espera a saber si el equipo admite incidencias antes de armar el formulario. */}
         {!(initialCode !== null && initialDevice.isPending) && (
           <IncidentForm

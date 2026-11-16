@@ -91,7 +91,7 @@ function ReportsPage() {
         </>
       ) : (
         <>
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             <KpiCard
               icon={ClipboardList}
               tone="info"
@@ -126,7 +126,7 @@ function ReportsPage() {
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             <BarListCard
               title="Incidencias por laboratorio"
               rows={report.by_laboratory.map((row) => ({ key: row.id, label: row.label, count: row.count }))}

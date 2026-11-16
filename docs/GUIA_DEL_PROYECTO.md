@@ -39,8 +39,9 @@ El caso de origen es el Bloque H de la UNEMI, pero el sistema sirve para **cualq
 | Pieza | Nombre técnico | Qué hace | Analogía |
 |---|---|---|---|
 | **Frontend** | React + TypeScript | Lo que la persona ve y usa: pantallas, botones, formularios. **No toma decisiones**: muestra datos y revisa los formularios para avisar errores rápido | El mesero: toma el pedido y lo lleva |
-| **Backend** | Django + Django REST Framework | Aplica **todas las reglas** (RN-01 a RN-25), decide quién puede hacer qué, calcula el riesgo con K-Means y guarda los datos | La cocina: decide qué se puede preparar y lo prepara |
+| **Backend** | Django + Django REST Framework | Aplica **todas las reglas** (RN-01 a RN-26), decide quién puede hacer qué, calcula el riesgo con K-Means y guarda los datos | La cocina: decide qué se puede preparar y lo prepara |
 | **Base de datos** | PostgreSQL | Guarda todo de forma permanente: usuarios, equipos, incidencias, resultados del modelo | La despensa |
+| **Trabajo en segundo plano** | Redis + Celery (worker y Beat) | Redis guarda la lista de tareas pendientes; el *worker* calcula el riesgo aparte, sin que el técnico espere; *Beat* lo programa cada 15 minutos (D-55) | La lista de pedidos y el cocinero de turno |
 
 **¿Cómo se comunican?** El frontend le pide cosas al backend por una **API**: un conjunto de direcciones como
 `/api/v1/incidents` (lista de incidencias) o `/api/v1/auth/login` (iniciar sesión). Las respuestas viajan en
@@ -60,9 +61,10 @@ saltarse una regla manipulando la pantalla.
    cerrada (RN-21).
 5. Calcula el tiempo de atención (RN-18) y guarda el cierre con Carlos como quien cerró (RN-15).
 6. Si el resultado de la atención fue "Requiere reemplazo", retira el equipo **en la misma operación** (RN-19).
-7. Al confirmar el guardado, ejecuta el **K-Means** para actualizar el riesgo de todos los equipos.
-8. Responde a la pantalla, que muestra "Incidencia cerrada y riesgo de los equipos actualizado" y refresca el
-   Dashboard.
+7. Al confirmar el guardado, **encola** el cálculo del K-Means en Redis y responde enseguida: Carlos no espera.
+8. La pantalla muestra "Incidencia cerrada" y refresca el Dashboard.
+9. El *worker* de Celery toma la tarea y recalcula el riesgo de todos los equipos en segundo plano (D-55). Si Redis
+   no estuviera disponible, el cálculo se haría en el momento.
 
 ---
 
@@ -108,7 +110,10 @@ saltarse una regla manipulando la pantalla.
 | `urls.py` | La lista de direcciones (endpoints) de cada parte |
 | `permissions.py` (**permisos**) | Quién puede hacer qué: por ejemplo, "solo administradores" (RN-06) |
 | `tests.py` | Las pruebas automáticas |
-| `management/commands/` | Comandos que se ejecutan en la terminal, como `seed_demo` o `recalculate_risk` |
+| `management/commands/` | Comandos que se ejecutan en la terminal, como `seed_demo`, `recalculate_risk` o `analizar_k` |
+| `tasks.py` (**tareas**) | Trabajo que Celery ejecuta en segundo plano, como el cálculo del riesgo (D-55) |
+| **Celery** | Herramienta que ejecuta tareas aparte del pedido del usuario. **Worker:** el proceso que las ejecuta. **Beat:** el reloj que las programa (cada 15 minutos) |
+| **Redis** | Base de datos en memoria que guarda la cola de tareas pendientes de Celery |
 | `settings.py` | La configuración general (base de datos, seguridad, idioma, zona horaria) |
 | **App** | Cada módulo del backend (ver sección 4) |
 
@@ -172,7 +177,7 @@ Cada módulo de `features/` tiene la misma forma: `pages/` (pantallas), `compone
 
 ## 6. La base de datos
 
-Las 14 tablas están en `docs/NEXOLAB_BD_v4.dbml`. El **prefijo** de cada nombre indica su tipo:
+Las 15 tablas (la última, la bitácora `hst_audit_logs`) están en `docs/NEXOLAB_BD_v4.dbml`. El **prefijo** de cada nombre indica su tipo:
 
 | Prefijo | Significa | Tablas |
 |---|---|---|
@@ -218,6 +223,8 @@ modificó). Además, Django crea unas tablas propias para funcionar (sesiones y 
 - **Sesión vencida:** si la sesión termina con la página abierta, el sistema lleva al login con el aviso
   "Tu sesión expiró" y, al entrar, vuelve a la pantalla anterior (D-47).
 - **Respaldos:** `sh scripts/respaldar.sh` guarda una copia de la base; `sh scripts/restaurar.sh` la recupera (D-48).
+- **Bitácora:** cada cambio administrativo (usuarios, laboratorios, equipos, catálogo, anulaciones y modo técnico)
+  queda registrado con quién lo hizo y qué cambió. Se consulta en Administración › Bitácora (D-52).
 
 ---
 
@@ -225,7 +232,8 @@ modificó). Además, Django crea unas tablas propias para funcionar (sesiones y 
 
 | Qué | Comando | Resultado esperado |
 |---|---|---|
-| Pruebas del backend | `python manage.py test apps` | 97 pruebas, todas OK |
+| Pruebas del backend | `python manage.py test apps` | 111 pruebas, todas OK |
+| Pruebas del frontend | `npm test` | 19 pruebas, todas OK |
 | Revisión del código del frontend | `npm run lint` | Sin errores |
 | Versión final del frontend | `npm run build` | Termina sin errores |
 
@@ -238,7 +246,7 @@ modificó). Además, Django crea unas tablas propias para funcionar (sesiones y 
 | Arrancar el sistema | [README.md](../README.md) |
 | Presentar el sistema | [GUION_DEMOSTRACION.md](GUION_DEMOSTRACION.md) |
 | Saber por qué se decidió algo | Sección 17 de [CONTEXTO_DESARROLLO.md](CONTEXTO_DESARROLLO.md) (D-01 a D-43) |
-| Las reglas de negocio | Sección 9 de `CONTEXTO_DESARROLLO.md` (RN-01 a RN-25) |
+| Las reglas de negocio | Sección 9 de `CONTEXTO_DESARROLLO.md` (RN-01 a RN-26) |
 | El modelo K-Means en detalle | Sección 10 de `CONTEXTO_DESARROLLO.md` |
 | Las tablas | [NEXOLAB_BD_v4.dbml](NEXOLAB_BD_v4.dbml) |
 | Los endpoints | [backend/README.md](../backend/README.md) |

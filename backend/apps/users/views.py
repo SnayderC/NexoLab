@@ -1,4 +1,5 @@
 from django.contrib.auth import login, logout, update_session_auth_hash
+from django.db import transaction
 from django.db.models import Count, Prefetch, Q
 from django.shortcuts import get_object_or_404
 from django.utils.decorators import method_decorator
@@ -8,6 +9,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core import audit
 from apps.infrastructure.models import Laboratory
 
 from . import login_attempts
@@ -120,6 +122,9 @@ class TechnicianModeView(APIView):
         enabled = request.data.get('enabled')
         if not isinstance(enabled, bool):
             return Response({'enabled': ['Indica true o false']}, status=status.HTTP_400_BAD_REQUEST)
+        if enabled != is_technician_mode(request):
+            action = audit.Action.TECHNICIAN_MODE_ON if enabled else audit.Action.TECHNICIAN_MODE_OFF
+            audit.record(request.user, action, audit.EntityType.USER, request.user)
         request.session[TECHNICIAN_MODE_KEY] = enabled
         return session_user_response(request)
 
@@ -168,7 +173,10 @@ class UserListView(APIView):
     def post(self, request):
         serializer = UserWriteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = serializer.save()
+        with transaction.atomic():
+            user = serializer.save()
+            audit.record(request.user, audit.Action.CREATE, audit.EntityType.USER, user,
+                         changes=audit.created(user, audit.USER_FIELDS))
         return user_response(user.pk, status.HTTP_201_CREATED)
 
 
@@ -181,7 +189,11 @@ class UserDetailView(APIView):
         user = get_object_or_404(User, pk=pk)
         serializer = UserWriteSerializer(user, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        with transaction.atomic():
+            before = audit.snapshot(user, audit.USER_FIELDS)
+            serializer.save()
+            if changes := audit.diff(before, audit.snapshot(user, audit.USER_FIELDS)):
+                audit.record(request.user, audit.Action.UPDATE, audit.EntityType.USER, user, changes=changes)
         return user_response(pk)
 
 
@@ -198,8 +210,12 @@ class UserActivationView(APIView):
             return Response(
                 {'detail': SELF_DEACTIVATION, 'code': 'self_deactivation'}, status=status.HTTP_409_CONFLICT
             )
-        user.is_active = self.is_active
-        user.save(update_fields=['is_active', 'updated_at'])
+        if user.is_active != self.is_active:
+            with transaction.atomic():
+                user.is_active = self.is_active
+                user.save(update_fields=['is_active', 'updated_at'])
+                action = audit.Action.ACTIVATE if self.is_active else audit.Action.DEACTIVATE
+                audit.record(request.user, action, audit.EntityType.USER, user)
         return user_response(pk)
 
 
@@ -212,6 +228,9 @@ class ResetPasswordView(APIView):
         user = get_object_or_404(User, pk=pk)
         serializer = ResetPasswordSerializer(data=request.data, context={'user': user})
         serializer.is_valid(raise_exception=True)
-        user.set_password(serializer.validated_data['new_password'])
-        user.save(update_fields=['password', 'updated_at'])
+        with transaction.atomic():
+            user.set_password(serializer.validated_data['new_password'])
+            user.save(update_fields=['password', 'updated_at'])
+            # Solo queda constancia de que se restableció; la contraseña nunca se guarda en la bitácora.
+            audit.record(request.user, audit.Action.RESET_PASSWORD, audit.EntityType.USER, user)
         return Response(status=status.HTTP_204_NO_CONTENT)

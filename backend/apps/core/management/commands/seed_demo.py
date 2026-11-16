@@ -19,6 +19,7 @@ from django.db.models import F
 from django.db.models.functions import Coalesce
 from django.utils.dateparse import parse_datetime
 
+from apps.core.models import AuditLog
 from apps.incidents.models import Component, Incident, IncidentStatus, ResolutionAction
 from apps.infrastructure.models import Device, DeviceStatus, DeviceType, Laboratory
 from apps.risk.models import DeviceRiskResult, KmeansCentroid, KmeansRun, RiskLevel
@@ -122,8 +123,8 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS(describe_run(run)))
 
     def _reset(self):
-        # De las tablas hijas a las padres, por las llaves foráneas.
-        for model in (DeviceRiskResult, KmeansCentroid, KmeansRun, Incident, Device, Laboratory, User,
+        # De las tablas hijas a las padres, por las llaves foráneas. La bitácora (D-52) también se vacía.
+        for model in (AuditLog, DeviceRiskResult, KmeansCentroid, KmeansRun, Incident, Device, Laboratory, User,
                       Role, DeviceType, DeviceStatus, Component, IncidentStatus, ResolutionAction, RiskLevel):
             model.objects.all().delete()
 

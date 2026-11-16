@@ -1,8 +1,10 @@
 """Pruebas del modelo de riesgo K-Means (sección 10, RN-23). Ejecutar: python manage.py test"""
 
 from datetime import timedelta
+from unittest.mock import patch
 
 import numpy as np
+from django.conf import settings
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -12,10 +14,12 @@ from rest_framework.test import APITestCase
 from apps.incidents.models import Component, Incident, IncidentStatus
 from apps.infrastructure.models import Device, DeviceStatus, DeviceType, Laboratory
 from apps.users.models import Role, User
+from config.celery import app as celery_app
 
 from . import kmeans
 from .models import DeviceRiskResult, KmeansRun, RiskLevel
 from .services import RiskCalculationError, calculate_risk
+from .tasks import recalculate_risk_task, schedule_recalculation
 
 Trigger = KmeansRun.TriggerType
 
@@ -251,3 +255,57 @@ class DashboardSummaryTests(RiskDataMixin, APITestCase):
         self.assertEqual(sum(len(group['devices']) for group in data['risk_groups']), 0)
         self.assertEqual(data['open_incidents'], [])
         self.assertEqual(data['indicators']['open_incident_count'], 33)
+
+
+@override_settings(RISK_MIN_OWN_HISTORY_DEVICES=3)
+class CeleryTaskTests(RiskDataMixin, TestCase):
+    """D-55: K-Means en segundo plano con Celery y recálculo programado (RF11, RNF07)."""
+
+    def test_d55_la_tarea_programada_registra_una_ejecucion_scheduled(self):
+        run_id = recalculate_risk_task(trigger_type=Trigger.SCHEDULED)
+        run = KmeansRun.objects.get(pk=run_id)
+        self.assertEqual((run.trigger_type, run.run_status, run.triggered_by), ('SCHEDULED', 'COMPLETED', None))
+
+    def test_d55_beat_programa_la_tarea_cada_15_minutos(self):
+        entry = settings.CELERY_BEAT_SCHEDULE['recalcular-riesgo-programado']
+        self.assertEqual(entry['schedule'], 15 * 60)
+        self.assertEqual(entry['kwargs'], {'trigger_type': 'SCHEDULED'})
+        self.assertIn(entry['task'], celery_app.tasks)
+
+    def test_d55_un_error_del_modelo_queda_registrado_y_no_se_propaga(self):
+        self.keep_history_only_for('PC-01')  # 1 equipo con historial y sin modelo inicial: el cálculo falla
+        with self.settings(RISK_MIN_OWN_HISTORY_DEVICES=30):
+            self.assertIsNone(recalculate_risk_task(trigger_type=Trigger.SCHEDULED, triggered_by_id=self.admin.id))
+        run = KmeansRun.objects.get()
+        self.assertEqual((run.run_status, run.triggered_by), ('FAILED', self.admin))
+        self.assertTrue(run.error_message)
+
+    def test_d55_se_encola_despues_de_confirmar_y_si_redis_falla_calcula_en_el_momento(self):
+        with patch.object(recalculate_risk_task, 'delay', side_effect=ConnectionError('Redis no responde')):
+            with self.captureOnCommitCallbacks(execute=True) as callbacks:
+                schedule_recalculation(Trigger.DEVICE_CHANGE, triggered_by=self.admin)
+                self.assertFalse(KmeansRun.objects.exists())  # nada antes de confirmar la transacción
+        self.assertEqual(len(callbacks), 1)
+        run = KmeansRun.objects.get()
+        self.assertEqual((run.trigger_type, run.run_status), ('DEVICE_CHANGE', 'COMPLETED'))
+
+    def test_d55_con_redis_disponible_solo_encola(self):
+        with patch.object(recalculate_risk_task, 'delay') as delay:
+            with self.captureOnCommitCallbacks(execute=True):
+                schedule_recalculation(Trigger.INCIDENT_CLOSED, triggered_by=self.admin)
+        delay.assert_called_once_with(trigger_type='INCIDENT_CLOSED', triggered_by_id=self.admin.id, incident_id=None)
+        self.assertFalse(KmeansRun.objects.exists())  # el worker lo hará en segundo plano
+
+
+class KAnalysisTests(SimpleTestCase):
+    """D-57: el análisis del codo encuentra k cuando los grupos son claros."""
+
+    def test_d57_con_tres_grupos_claros_el_codo_y_la_silueta_eligen_tres(self):
+        from .management.commands.analizar_k import elbow, evaluate
+
+        rng = np.random.default_rng(42)
+        centers = [(2, 5, 60), (6, 60, 20), (12, 10, 5)]
+        rows = np.vstack([rng.normal(center, 0.5, size=(20, 3)) for center in centers])
+        results = evaluate(rows)
+        self.assertEqual(elbow(results), 3)
+        self.assertEqual(max(results, key=lambda r: r['silhouette'])['k'], 3)

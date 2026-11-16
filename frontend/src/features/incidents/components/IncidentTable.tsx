@@ -112,6 +112,7 @@ function IncidentTable({
   return (
     <Table
       caption="Lista de incidencias"
+      tabletMinWidthClass="max-desktop:min-w-240"
       columns={columns}
       rows={incidents}
       getRowKey={(incident) => incident.id}

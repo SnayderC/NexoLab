@@ -1,5 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createDevice, listDevices, updateDevice, type DeviceListFilters } from './api'
+import { createDevice, listDevices, updateDevice, voidDevice, type DeviceListFilters } from './api'
 
 export function useDeviceList(filters: DeviceListFilters) {
   return useQuery({
@@ -31,4 +31,9 @@ export function useUpdateDevice() {
     mutationFn: ({ id, input }: { id: number; input: Parameters<typeof updateDevice>[1] }) => updateDevice(id, input),
     onSuccess: invalidate,
   })
+}
+
+export function useVoidDevice() {
+  const invalidate = useInvalidateDevices()
+  return useMutation({ mutationFn: voidDevice, onSuccess: invalidate })
 }

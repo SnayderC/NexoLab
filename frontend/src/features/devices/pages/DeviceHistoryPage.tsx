@@ -93,7 +93,7 @@ function DeviceHistoryPage() {
           <p className="text-text-muted">No aplica · equipo retirado</p>
         </section>
       ) : (
-        <div className="grid grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           <CurrentRiskCard risk={device.current_risk} />
           <RiskEvolutionChart history={device.risk_history} />
         </div>

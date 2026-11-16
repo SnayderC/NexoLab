@@ -5,6 +5,7 @@ Los valores sensibles y los que cambian por entorno se leen de backend/.env
 (ver backend/.env.example). Nunca se escriben credenciales en este archivo.
 """
 
+import sys
 from pathlib import Path
 
 import environ
@@ -18,6 +19,8 @@ env = environ.Env(
     RISK_MIN_OWN_HISTORY_DEVICES=(int, 30),
     LOGIN_MAX_FAILED_ATTEMPTS=(int, 5),
     LOGIN_LOCKOUT_MINUTES=(int, 15),
+    REDIS_URL=(str, ''),
+    RISK_RECALC_MINUTES=(int, 15),
 )
 environ.Env.read_env(BASE_DIR / '.env')
 
@@ -114,3 +117,28 @@ RISK_MIN_OWN_HISTORY_DEVICES = env('RISK_MIN_OWN_HISTORY_DEVICES')
 # RN-25 (D-46): intentos fallidos de login antes de bloquear, y minutos de bloqueo.
 LOGIN_MAX_FAILED_ATTEMPTS = env('LOGIN_MAX_FAILED_ATTEMPTS')
 LOGIN_LOCKOUT_MINUTES = env('LOGIN_LOCKOUT_MINUTES')
+
+# ---------- Celery y Redis (D-55): K-Means en segundo plano y recálculo programado ----------
+# REDIS_URL lo define Docker Compose (redis://redis:6379/0). Sin él, o al correr las pruebas, las tareas se ejecutan
+# en el mismo proceso (modo "eager"): todo funciona igual, solo que no en segundo plano.
+TESTING = len(sys.argv) > 1 and sys.argv[1] == 'test'
+CELERY_BROKER_URL = env('REDIS_URL') or 'memory://'
+CELERY_TASK_ALWAYS_EAGER = TESTING or not env('REDIS_URL')
+CELERY_TASK_IGNORE_RESULT = True
+CELERY_TIMEZONE = TIME_ZONE
+# Si Redis no responde, se avisa enseguida (sin reintentos largos) y el cálculo se hace en el momento.
+CELERY_TASK_PUBLISH_RETRY = False
+# Sin reintentos al publicar; el worker sí se reconecta solo si Redis se reinicia.
+CELERY_BROKER_CONNECTION_TIMEOUT = 1
+CELERY_BROKER_TRANSPORT_OPTIONS = {'socket_connect_timeout': 1, 'socket_timeout': 2}
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+# RF11: recálculo programado cada RISK_RECALC_MINUTES minutos (15 por defecto). Actualiza, por ejemplo, los
+# "días desde la última falla" aunque nadie registre nada.
+RISK_RECALC_MINUTES = env('RISK_RECALC_MINUTES')
+CELERY_BEAT_SCHEDULE = {
+    'recalcular-riesgo-programado': {
+        'task': 'apps.risk.tasks.recalculate_risk_task',
+        'schedule': RISK_RECALC_MINUTES * 60,
+        'kwargs': {'trigger_type': 'SCHEDULED'},
+    },
+}

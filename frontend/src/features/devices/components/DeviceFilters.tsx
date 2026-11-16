@@ -40,9 +40,9 @@ function DeviceFilters({ filters, onChange }: DeviceFiltersProps) {
   ]
 
   return (
-    <div className="flex gap-3">
+    <div className="flex flex-wrap gap-3">
       <SearchInput
-        className="flex-1"
+        className="max-lg:basis-full lg:flex-1"
         placeholder="Buscar por código"
         aria-label="Buscar por código"
         value={filters.search}

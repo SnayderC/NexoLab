@@ -30,9 +30,9 @@ function IncidentFilters({ filters, onChange }: IncidentFiltersProps) {
   ]
 
   return (
-    <div className="flex gap-3">
+    <div className="flex flex-wrap gap-3">
       <SearchInput
-        className="flex-1"
+        className="max-lg:basis-full lg:flex-1"
         placeholder="Buscar por n.º o código de equipo"
         aria-label="Buscar por n.º o código de equipo"
         value={filters.search}

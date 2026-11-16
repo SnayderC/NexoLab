@@ -18,7 +18,7 @@ function ProfilePage() {
   const fullName = `${user.first_name} ${user.last_name}`
 
   return (
-    <div className="grid max-w-326 grid-cols-2 items-start gap-4">
+    <div className="grid max-w-326 grid-cols-1 items-start gap-4 lg:grid-cols-2">
       <section className="flex flex-col gap-4 rounded-lg border border-border-subtle bg-surface p-5 shadow-menu">
         <h1 className="text-xs font-semibold">Mi perfil</h1>
         <div className="flex items-center gap-3">

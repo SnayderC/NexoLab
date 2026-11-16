@@ -3,6 +3,7 @@ import AppLayout from '../components/layout/AppLayout'
 import RequireAdmin from '../components/layout/RequireAdmin'
 import RequireAuth from '../components/layout/RequireAuth'
 import RequireTechnicianWork from '../components/layout/RequireTechnicianWork'
+import AuditLogPage from '../features/audit/pages/AuditLogPage'
 import LoginPage from '../features/auth/pages/LoginPage'
 import DeviceTypeCatalogPage from '../features/catalog/pages/DeviceTypeCatalogPage'
 import DashboardPage from '../features/dashboard/pages/DashboardPage'
@@ -59,6 +60,7 @@ export const router = createBrowserRouter([
             handle: { title: 'Catálogo de equipos' },
           },
           { path: 'usuarios', element: <UserListPage />, handle: { title: 'Usuarios' } },
+          { path: 'bitacora', element: <AuditLogPage />, handle: { title: 'Bitácora' } },
         ],
       },
       { path: '*', element: <Navigate to="/" replace /> },

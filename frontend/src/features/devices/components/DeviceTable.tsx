@@ -74,6 +74,7 @@ function DeviceTable({ devices, onEdit, emptyState, footer }: DeviceTableProps) 
   return (
     <Table
       caption="Equipos"
+      tabletMinWidthClass="max-desktop:min-w-240"
       columns={columns}
       rows={devices}
       getRowKey={(device) => device.id}

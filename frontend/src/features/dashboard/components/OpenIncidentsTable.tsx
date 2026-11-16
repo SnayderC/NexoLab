@@ -19,8 +19,8 @@ function OpenIncidentsTable({ incidents, now, canClose }: OpenIncidentsTableProp
   const navigate = useNavigate()
 
   const columns: TableColumn<OpenIncidentItem>[] = [
-    { key: 'number', header: 'N.º', className: 'w-45', render: (incident) => incident.incident_number },
-    { key: 'device', header: 'Equipo', className: 'w-45', render: (incident) => incident.device_code },
+    { key: 'number', header: 'N.º', className: 'w-45 whitespace-nowrap', render: (incident) => incident.incident_number },
+    { key: 'device', header: 'Equipo', className: 'w-45 whitespace-nowrap', render: (incident) => incident.device_code },
     { key: 'component', header: 'Componente', className: 'w-42.5', render: (incident) => incident.component_name },
     {
       key: 'priority',

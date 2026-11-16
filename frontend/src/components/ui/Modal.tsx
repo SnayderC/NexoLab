@@ -13,8 +13,9 @@ type ModalProps = {
 }
 
 const sizeClasses = {
-  md: 'w-140',
-  lg: 'w-200',
+  // D-51: en pantallas angostas, el ancho de la pantalla menos 2 rem.
+  md: 'w-140 max-w-[calc(100vw-2rem)]',
+  lg: 'w-200 max-w-[calc(100vw-2rem)]',
 }
 
 function Modal({ open, onClose, title, size = 'lg', footer, children }: ModalProps) {

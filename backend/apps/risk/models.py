@@ -27,6 +27,9 @@ class KmeansRun(BaseModel):
         INCIDENT_CLOSED = 'INCIDENT_CLOSED'
         CATALOG_CHANGE = 'CATALOG_CHANGE'
         MANUAL = 'MANUAL'
+        # D-55: recálculo programado por Celery Beat y al registrar un equipo nuevo (RF11).
+        SCHEDULED = 'SCHEDULED'
+        DEVICE_CHANGE = 'DEVICE_CHANGE'
 
     class RunStatus(models.TextChoices):
         RUNNING = 'RUNNING'

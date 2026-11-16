@@ -110,14 +110,14 @@ function DeviceTypeCatalogPage() {
           )}
 
           <SearchInput
-            className="w-80"
+            className="w-full md:w-80"
             placeholder="Buscar tipo de equipo"
             aria-label="Buscar tipo de equipo"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
 
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex gap-3">
               <Button onClick={() => setSelected(new Set(types.map((t) => t.id)))}>Seleccionar todos</Button>
               <Button onClick={() => setSelected(new Set())}>Desmarcar todos</Button>
@@ -127,7 +127,7 @@ function DeviceTypeCatalogPage() {
             </Button>
           </div>
 
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
             {visible.map((type) => (
               <CatalogTypeCard
                 key={type.id}
@@ -142,7 +142,7 @@ function DeviceTypeCatalogPage() {
 
       {/* Barra de cambios sin guardar (Figma 5.10). */}
       {changeCount > 0 && (
-        <div className="fixed right-0 bottom-0 left-64 z-10 flex items-center justify-between border-t border-border-subtle bg-surface px-8 py-4">
+        <div className="fixed right-0 bottom-0 left-0 z-10 xl:left-64 flex items-center justify-between border-t border-border-subtle bg-surface px-4 py-4 md:px-8">
           <p>{changeCount === 1 ? '1 cambio sin guardar' : `${changeCount} cambios sin guardar`}</p>
           <div className="flex gap-3">
             <Button onClick={() => setDraft(null)}>Descartar</Button>

@@ -3,7 +3,7 @@
 > **Qué es este documento:** la referencia única del proyecto para desarrollar en VS Code. Sirve para el equipo y también como contexto para asistentes de IA (GitHub Copilot, Claude, etc.).
 > **Dónde va:** en el repositorio, en `docs/CONTEXTO_DESARROLLO.md`.
 > **Regla de oro:** si algo del código contradice este documento, se corrige uno de los dos y se registra en la sección 17 (Decisiones).
-> **Última actualización:** 16/11/2026 · Calidad: límite de intentos de login (RN-25, D-46), aviso de sesión vencida (D-47), respaldos (D-48) y se quitó la página de prueba de componentes (D-49).
+> **Última actualización:** 16/11/2026 · Calidad: límite de intentos de login (RN-25, D-46), sesión vencida (D-47), respaldos (D-48), rendimiento medido (D-50), adaptación a tablet (D-51), bitácora (D-52), pruebas del frontend (D-53); se descartó la integración continua (D-54).
 
 ---
 
@@ -83,6 +83,7 @@ que activa desde el menú de usuario cuando necesita registrar o cerrar incidenc
 | Anular incidencias (RN-22) | ❌ | ✅ | ❌ |
 | Recalcular el riesgo manualmente | ❌ | ✅ | ❌ |
 | Gestionar laboratorios, equipos, catálogo y usuarios | ❌ | ✅ | ❌ |
+| Consultar la bitácora de cambios (D-52) | ❌ | ✅ | ❌ |
 
 - Un técnico puede atender **cualquier** laboratorio. No está atado a uno.
 - Los permisos se aplican **en el backend**. Ocultar un botón en el frontend no es seguridad.
@@ -107,6 +108,8 @@ Versiones verificadas el 24/10/2026. Al instalar, se fijan con los archivos de b
 | psycopg | 3 | Conector de PostgreSQL |
 | django-environ | 0.14 | Leer variables de entorno |
 | scikit-learn, pandas, numpy | (fase K-Means) | Modelo de riesgo |
+| Celery (`celery[redis]`) | 5.6 | Tareas en segundo plano y recálculo programado (D-55) |
+| Redis | 7 (en Docker) | Cola de tareas de Celery (D-55) |
 
 ### Frontend
 
@@ -123,6 +126,9 @@ Versiones verificadas el 24/10/2026. Al instalar, se fijan con los archivos de b
 | @hookform/resolvers | 5 | Conecta Zod con React Hook Form (ver D-15) |
 | lucide-react | actual | Íconos (el Figma usa estilo Lucide) |
 | Recharts | 3 | Gráfico de evolución del riesgo |
+| Vitest | 5 | Pruebas del frontend (solo desarrollo, D-53) |
+| Testing Library (react, jest-dom, user-event) | 16 / 7 / 14 | Probar componentes como los usa una persona (solo desarrollo, D-53) |
+| jsdom | 31 | Navegador simulado para las pruebas (solo desarrollo, D-53) |
 
 **Regla:** no se agrega ninguna dependencia que no esté en esta tabla sin justificarla y registrarla en la sección 17.
 
@@ -149,7 +155,7 @@ VS Code, Git y GitHub, Docker Desktop, GitHub Copilot (necesario para conectar F
 - **El frontend no tiene lógica de negocio.** Muestra datos y valida formularios para mejorar la experiencia, pero el backend vuelve a validar todo.
 - **En desarrollo**, Vite redirige `/api` al backend (proxy). Así ambos parecen estar en el mismo origen y se evitan problemas de CORS y de cookies.
 - **La lógica de negocio va en servicios** (`apps/<app>/services.py`), no en las vistas. Las vistas solo reciben la petición, llaman al servicio y responden.
-- **K-Means se ejecuta dentro de Django**, justo después de confirmar la transacción que lo dispara (por ejemplo, el cierre de una incidencia). No se usan Celery ni Redis (decisión D-06).
+- **K-Means se ejecuta en segundo plano con Celery y Redis** (D-55): al confirmar el cierre o la anulación de una incidencia, o el registro de un equipo, se encola una tarea que el *worker* de Celery ejecuta aparte; Celery Beat programa además un recálculo cada 15 minutos. El catálogo y el botón "Recalcular ahora" calculan en el momento. Sin Redis, todo se calcula en el momento (como antes).
 
 ---
 
@@ -177,7 +183,7 @@ nexolab/
 │   ├── Dockerfile
 │   ├── .env.example
 │   ├── data/                     # ITSM_data.csv: dataset de Kaggle (sección 10)
-│   ├── config/                   # settings.py, urls.py
+│   ├── config/                   # settings.py, urls.py, celery.py (D-55)
 │   └── apps/
 │       ├── core/                 # BaseModel y utilidades comunes
 │       ├── users/                # cat_roles, mst_users
@@ -195,6 +201,7 @@ nexolab/
         │   ├── ui/               # Button, Badge, Input, Select, Modal, Table, Toast, Skeleton, EmptyState
         │   └── layout/           # AppLayout, Sidebar, Topbar
         ├── features/             # una carpeta por módulo
+        │   ├── audit/            # pantalla Bitácora (D-52)
         │   ├── auth/
         │   ├── dashboard/
         │   ├── incidents/
@@ -205,7 +212,8 @@ nexolab/
         │   ├── profile/
         │   └── reports/          # pantalla Reportes (D-40)
         ├── types/                # tipos de TypeScript que reflejan la BD
-        └── lib/                  # cliente de API, formato de fechas, utilidades
+        ├── lib/                  # cliente de API, formato de fechas, utilidades
+        └── test/                 # configuración y ayudantes de las pruebas (D-53); las pruebas van junto a cada archivo (*.test.tsx)
 ```
 
 Cada carpeta de `features/` contiene `pages/` (pantallas completas), `components/` (piezas propias del módulo) y `api.ts` (funciones que piden datos).
@@ -261,7 +269,7 @@ Cada carpeta de `features/` contiene `pages/` (pantallas completas), `components
 
 ## 8. Modelo de datos
 
-Fuente de verdad: `docs/NEXOLAB_BD_v4.dbml`. 14 tablas, 19 relaciones, 144 columnas, verificadas contra PostgreSQL.
+Fuente de verdad: `docs/NEXOLAB_BD_v4.dbml`. 15 tablas y 20 relaciones (v4.1: se agregó `hst_audit_logs`, D-52), verificadas contra PostgreSQL.
 
 | Tipo | Tabla | Qué guarda |
 |---|---|---|
@@ -279,6 +287,7 @@ Fuente de verdad: `docs/NEXOLAB_BD_v4.dbml`. 14 tablas, 19 relaciones, 144 colum
 | Histórica | `hst_kmeans_runs` | Bitácora de cada ejecución del modelo |
 | Histórica | `hst_kmeans_centroids` | Perfil promedio de cada grupo |
 | Histórica | `hst_device_risk_results` | Nivel de riesgo de cada equipo por ejecución. `is_current` = el vigente |
+| Histórica | `hst_audit_logs` | Bitácora de cambios administrativos: quién, qué acción, sobre qué elemento y qué cambió (D-52) |
 
 **Estado de registro vs estado de negocio.** `is_active` indica si la fila es válida o fue anulada (eliminación lógica). `device_status_id` e `incident_status_id` indican la situación real. Un equipo **retirado** sigue siendo un registro **activo** con su historial; un equipo **registrado por error** se anula con `is_active = false`.
 
@@ -300,6 +309,8 @@ Cada regla se aplica en el **backend**. El frontend puede validarlas antes para 
 - **RN-06** Un técnico que intenta acceder a una función de administración recibe un error 403 (backend) y la pantalla "Acceso restringido" (frontend). Sin sesión la respuesta es 401 y el frontend lleva al login con el aviso "Tu sesión expiró" (D-47).
 - **RN-24** Registrar y cerrar incidencias es trabajo del técnico. El administrador solo puede hacerlo con el **modo técnico** activo (`POST auth/technician-mode`); sin él, la API responde 403 "Activa el modo técnico para registrar o cerrar incidencias.". El modo se guarda en la sesión, empieza apagado en cada inicio de sesión y lo que se registra queda a nombre del administrador (RN-15). Ver D-45.
 - **RN-25** Tras 5 intentos de login fallidos con el mismo correo desde la misma dirección, el login se bloquea 15 minutos (429: "Demasiados intentos fallidos. Intenta de nuevo en N minutos."), aunque la contraseña sea correcta. Se bloquea igual si el correo no existe (RN-01). Un login correcto reinicia el contador. Los valores se ajustan en `backend/.env` (`LOGIN_MAX_FAILED_ATTEMPTS`, `LOGIN_LOCKOUT_MINUTES`). Ver D-46.
+
+- **RN-26** Un equipo registrado por error se **anula** (`is_active = false`, solo administrador) únicamente si no tiene incidencias válidas; si las tiene, se retira (RN-12) para conservar su historial. Su código queda reservado y la anulación queda en la bitácora. Ver D-56.
 
 ### Catálogo e infraestructura
 
@@ -345,7 +356,7 @@ Cada regla se aplica en el **backend**. El frontend puede validarlas antes para 
 
 ### Disparadores (`trigger_type`)
 
-`INITIAL_LOAD` (entrenamiento inicial con el dataset de Kaggle), `INCIDENT_CLOSED`, `CATALOG_CHANGE` y `MANUAL` (botón del administrador).
+`INITIAL_LOAD` (entrenamiento inicial con el dataset de Kaggle), `INCIDENT_CLOSED` (en segundo plano), `CATALOG_CHANGE`, `MANUAL` (botón del administrador; también al anular una incidencia, en segundo plano), `SCHEDULED` (Celery Beat cada 15 minutos) y `DEVICE_CHANGE` (equipo nuevo, en segundo plano). Ver D-55.
 
 ### Métricas que se guardan
 
@@ -449,7 +460,7 @@ Sombras: `shadow-menu` (listas desplegables), `shadow-toast` (mensajes emergente
 - Esquinas de 8 px, sombras suaves, íconos lineales (Lucide).
 - Tablas: encabezado fijo, filas de 48 px, paginación al pie.
 - Formularios: etiqueta arriba, `*` en obligatorios, error en rojo debajo del campo.
-- Diseño para escritorio de 1440 px, adaptable a tablet.
+- Diseño para escritorio de 1440 px, adaptable a tablet (D-51): por debajo de 1280 px el menú lateral se abre con ☰; por debajo de 1440 px las tablas anchas se desplazan de lado; las cuadrículas pasan a menos columnas.
 
 ### Badges
 
@@ -484,6 +495,7 @@ Referencia visual: archivo de Figma "Nexolab — Prototipo 1.0" (53 frames). Dat
 | Equipos | `/admin/equipos` | Admin | 05 · Administración | `mst_devices` |
 | Catálogo de equipos | `/admin/catalogo` | Admin | 05 · Administración | `cat_device_types` |
 | Usuarios | `/admin/usuarios` | Admin | 05 · Administración | `mst_users`, `cat_roles` |
+| Bitácora | `/admin/bitacora` | Admin | No está en el Figma (D-52) | `hst_audit_logs` |
 | Reportes | `/reportes` | Ambos | No está en el Figma (D-40) | `trx_incidents`, `mst_devices`, `hst_device_risk_results` |
 | Mi perfil | `/perfil` | Ambos | 06 · Perfil | `mst_users` |
 | Acceso restringido | (cualquier ruta `/admin` para técnicos) | Técnico | 05 · Administración | — |
@@ -509,12 +521,14 @@ Base: `/api/v1/`. JSON en `snake_case`. Todos los endpoints requieren autenticac
 | `GET devices` · `GET devices/{code}` | Lista y detalle con riesgo vigente y evolución mensual (D-36) ✅ |
 | `GET devices/{code}/incidents` | Historial ✅ |
 | `POST devices` 🔒 · `PATCH devices/{id}` 🔒 (incluye el retiro) | Gestión (D-36) ✅ |
+| `POST devices/{id}/void` 🔒 | Anular un equipo registrado por error, sin incidencias (RN-26) ✅ |
 | `GET device-types` | Tipos de equipo para filtros y formularios ✅ |
 | `GET laboratories` · `POST` 🔒 · `PATCH laboratories/{id}` 🔒 · `POST laboratories/{id}/activate` 🔒 · `POST laboratories/{id}/deactivate` 🔒 | Laboratorios ✅ |
 | `GET device-types` 🔒 · `POST device-types` 🔒 · `PUT device-types/selection` 🔒 | Catálogo |
 | `GET users` 🔒 · `POST users` 🔒 · `PATCH users/{id}` 🔒 | Usuarios ✅ |
 | `POST users/{id}/reset-password` 🔒 · `POST users/{id}/activate` 🔒 · `POST users/{id}/deactivate` 🔒 | Usuarios ✅ |
 | `POST risk/recalculate` 🔒 | Recálculo manual ✅ |
+| `GET audit-logs` 🔒 | Bitácora con filtros `entity_type`, `user_id`, `from`, `to` y páginas de 20 (D-52) ✅ |
 | `GET reports/summary` | Reportes de un periodo, por laboratorio (D-40) ✅ |
 
 Los marcados con ✅ ya están programados y probados (detalle en `backend/README.md`).
@@ -629,6 +643,15 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 - [x] Se quitó la página de prueba de componentes `features/dev` (D-49).
 - [x] RNF03 medido: cumple con 10 y 30 usuarios (D-50).
 - [ ] RNF06: aplicar `docs/evidencias/ficha_usabilidad.md` a 5 participantes (lo hace el equipo).
+- [x] Adaptación a tablet (D-51).
+- [x] Bitácora de cambios administrativos, con 4 pruebas (D-52). 101 pruebas del backend en total.
+- [x] Pruebas del frontend con Vitest: 19 pruebas (D-53).
+- [x] ~~Integración continua con GitHub Actions~~: se quitó; el proyecto se ejecuta solo en local (D-54).
+
+### Fase 11 — Decisiones finales del autor (16/11/2026)
+- [x] Celery y Redis: K-Means en segundo plano y recálculo cada 15 minutos (D-55), con 7 pruebas.
+- [x] "Anular equipo" registrado por error (RN-26, D-56), con 3 pruebas.
+- [x] Análisis de k con el codo y la silueta (D-57), con 1 prueba. 111 pruebas del backend en total.
 
 ---
 
@@ -649,7 +672,7 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 ### Antes de cada commit
 
 - [ ] `python manage.py check` y `python manage.py test apps` sin errores (backend).
-- [ ] `npm run lint` y `npm run build` sin errores (frontend).
+- [ ] `npm run lint`, `npm test` y `npm run build` sin errores (frontend).
 - [ ] Probar en el navegador la pantalla o función que se cambió.
 - [ ] Revisar que no se suba ningún `.env`.
 
@@ -664,7 +687,7 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 | D-03 | Equipos con menos de 2 incidencias → riesgo bajo por regla | K-Means necesita las 3 variables, que no existen sin historial |
 | D-04 | Los técnicos no están atados a un laboratorio | En la práctica, un técnico puede atender todos |
 | D-05 | Nombres en inglés con prefijos por tipo y campos de control en todas las tablas | Buenas prácticas y retroalimentación de la docente |
-| D-06 | Sin Celery ni Redis: K-Means se ejecuta dentro de Django después de confirmar la transacción | Con ~142 equipos tarda milisegundos; dos servicios menos *(pendiente de confirmación del equipo)* |
+| D-06 | *(Reemplazada por D-55 el 16/11/2026)* Sin Celery ni Redis: K-Means se ejecuta dentro de Django después de confirmar la transacción | Con ~142 equipos tarda milisegundos; dos servicios menos *(pendiente de confirmación del equipo)* |
 | D-07 | Django 5.2 LTS | Django 4.2 terminó su soporte en abril de 2026 |
 | D-08 | "Derivado" cierra la incidencia | Simplicidad; una nueva falla se registra como nueva incidencia |
 | D-09 | Sin registro público ni recuperación por correo | Sistema interno; el estudio de caso excluye notificaciones por correo |
@@ -709,6 +732,13 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 | D-48 | Respaldos con `scripts/respaldar.sh` (`pg_dump --clean --if-exists` dentro del contenedor `db`, archivo `respaldos/nexolab_AAAAMMDD_HHMM.sql`) y `scripts/restaurar.sh` (pide confirmación y restaura en una sola transacción: si algo falla, no cambia nada). `respaldos/` está en `.gitignore` | Los respaldos son parte de la fiabilidad (ISO 25010). No se instala nada: se usan las herramientas de PostgreSQL del contenedor. Contienen datos reales (correos y hashes de contraseñas), por eso no se suben |
 | D-49 | Se eliminó `frontend/src/features/dev/` (página `/dev/componentes` con datos copiados del Figma para revisar los componentes) | Solo existía en desarrollo y ya no se usa. Evita que un revisor la confunda con datos "quemados" (la regla es que los datos vienen de la API) |
 | D-50 | RNF03 se mide con `scripts/medir_rendimiento.py`, que usa solo la biblioteca estándar de Python (hilos y `urllib`): varios usuarios inician sesión y repiten 9 consultas habituales a través del frontend. Solo hace consultas, no cambia datos. Resultado del 16/11/2026, con 432 equipos: 10 usuarios, 100 % ≤ 3 s (percentil 95: 0,43 s); 30 usuarios, 100 % ≤ 3 s (percentil 95: 1,2 s). Informes en `docs/evidencias/`. La prueba de usabilidad (RNF06) tiene su protocolo con el cuestionario SUS en `docs/evidencias/ficha_usabilidad.md` | Medir sin instalar herramientas de carga (sección 4). Se mide por el frontend para incluir el proxy, como un usuario real. La medición usa el servidor de desarrollo, así que en producción el resultado sería igual o mejor |
+| D-51 | **Adaptación a tablet.** Menor de 1280 px: el menú lateral se oculta y se abre con el botón ☰ de la barra superior (fondo oscurecido; se cierra al elegir una opción, al tocar fuera o con Escape). Menor de 1440 px (punto de corte `desktop` en `index.css`): las tablas conservan un ancho mínimo y se desplazan de lado dentro de su caja, y su encabezado deja de ser fijo. Menor de 1024 px: indicadores en 2 columnas, columnas de riesgo apiladas, historial del equipo y perfil en una columna, panel del equipo debajo del formulario de registro, filtros en varias líneas y modales del ancho de la pantalla. Con 1440 px o más todo queda igual que el Figma. Verificado a 768, 1024, 1280 y 1440 px: ninguna pantalla se desborda | La sección 11 pedía "adaptable a tablet" y no se cumplía (el menú ocupaba un tercio de la pantalla y las tablas cortaban columnas). Las tablas de incidencias y equipos necesitan unos 1 150 px; con el menú visible solo caben desde 1440 px. Por eso el desplazamiento lateral llega hasta 1440 px y el menú desplegable hasta 1280 px. El Figma no tiene versión tablet: se usaron los mismos componentes y colores |
+| D-52 | **Bitácora de cambios administrativos.** Tabla nueva `hst_audit_logs` (DBML v4.1, aprobada por el autor el 16/11/2026): usuario, acción, tipo y id del elemento, texto del elemento al momento del cambio y cambios en JSON (`{"campo": [antes, después]}`). Se registra, en la misma transacción que el cambio: crear, editar, activar y desactivar usuarios y laboratorios; restablecer contraseña (sin guardarla); crear, editar y retirar equipos; agregar tipos y guardar la selección del catálogo (tipos agregados y quitados); anular incidencias; activar y desactivar el modo técnico. Solo se anotan los campos que cambiaron, y si nada cambió no se crea entrada. Pantalla Administración › Bitácora (`/admin/bitacora`) con filtros por elemento, usuario y fechas. `seed_demo --reset` también la vacía. Código: `apps/core/audit.py` | Permite responder "¿quién desactivó a este usuario?" o "¿quién retiró este equipo?": rendición de cuentas (ISO 25010, seguridad). En una tabla y no en un archivo, para consultarla desde la aplicación. Registrar un cambio no requiere tocar los modelos existentes |
+| D-53 | Pruebas del frontend con **Vitest 5**, Testing Library y jsdom (dependencias de desarrollo aprobadas por el autor el 16/11/2026; no llegan al usuario final). Se ejecutan con `npm test`. 19 pruebas en 5 archivos: cliente de la API (CSRF, errores, 401 y sesión vencida), menú según rol y modo (RN-24), formulario de login (RN-01, RN-25, D-47), formulario de cierre (D-44, RN-19) y cambios de la bitácora. Los datos de prueba están en `src/test/fixtures.tsx`. `npm audit` reporta 9 avisos moderados en `minimatch`, dependencia interna de las herramientas de desarrollo: no se forzó la corrección porque cambiaría versiones a la fuerza y no afecta a la aplicación | El backend ya tenía pruebas automáticas; el frontend solo se probaba a mano. Las pruebas se escriben como las usaría una persona (por etiqueta y rol), así siguen sirviendo si cambia el código interno |
+| D-54 | *(Descartada el 16/11/2026)* Se probó una integración continua con GitHub Actions y se quitó por decisión del autor: el sistema se ejecuta solo en local y las verificaciones se corren en la computadora antes de cada commit (sección 16). El push además exigía un permiso extra del token de GitHub (`workflow`) | El proyecto no se despliega ni se publica; las 111 pruebas del backend y las 19 del frontend se ejecutan localmente con `python manage.py test apps` y `npm test` |
+| D-55 | **Celery y Redis** (decisión del autor, 16/11/2026; reemplaza a D-06). Docker Compose agrega `redis` (cola), `worker` (`celery -A config worker --concurrency 1`) y `beat` (`celery -A config beat`). `apps/risk/tasks.py`: `recalculate_risk_task` y `schedule_recalculation`, que encola después de confirmar la transacción. En segundo plano: cierre (`INCIDENT_CLOSED`), anulación (`MANUAL`), equipo nuevo (`DEVICE_CHANGE`) y el programado cada `RISK_RECALC_MINUTES` minutos (15; `SCHEDULED`). En el momento: catálogo y "Recalcular ahora", porque el administrador espera el resultado. Un candado de PostgreSQL (`pg_advisory_xact_lock`) evita que dos cálculos se crucen. Sin `REDIS_URL` (backend sin Docker) o en las pruebas, las tareas corren en el mismo proceso; si Redis no responde, se calcula en el momento en unos 3 s (tiempo de conexión de 1 s y sin reintentos al publicar; el worker sí se reconecta solo, y worker, beat y redis tienen `restart: unless-stopped`). Verificado: tarea encolada completada por el worker en 207 ms; Beat (con 1 minuto para la prueba) disparó una ejecución `SCHEDULED`; con Redis detenido, el cálculo se hizo igual | El objetivo específico 3, RF11 y RNF07 de la tesis piden Celery, Redis y recálculo cada 15 minutos; cumplirlos es más sencillo que cambiar un objetivo aprobado. Además, el recálculo programado mantiene al día los "días desde la última falla" aunque nadie registre nada. Dependencias nuevas aprobadas por el autor |
+| D-56 | **Anular equipo** (RN-26): `POST devices/{id}/void`, solo administrador y solo sin incidencias válidas (409 `has_incidents` si las tiene). Quita su riesgo vigente, lo registra en la bitácora y su código queda reservado ("El código … perteneció a un equipo anulado"). En la interfaz: botón "Anular equipo" en el modal Editar equipo, con confirmación, visible solo si el equipo no tiene incidencias | Resuelve el pendiente "Eliminar equipo" (sección 18) y la observación de RF04 de la tesis: un error de registro se corrige sin borrar nada, y con historial el equipo se retira |
+| D-57 | **Análisis de k**: `python manage.py analizar_k` prueba k = 2 a 8 (codo, silueta y Davies-Bouldin) con Kaggle y con los datos propios, y guarda `docs/evidencias/analisis_k.md` y tres gráficos SVG. Resultado del 16/11/2026: el codo cae en k = 4, pero la silueta de k = 3 es casi igual (0,522 frente a 0,536 con Kaggle) y con k = 4 aparece un grupo de 6 equipos; con los datos propios la silueta solo mejora con k ≥ 5, a costa de grupos de 5 equipos. **Se mantiene k = 3** | La tesis pide comprobar si tres grupos son adecuados (referente de Vita et al.). k = 3 tiene calidad casi óptima, grupos estables y se interpreta directamente como tres niveles de acción. Se recomienda repetir el análisis cuando el historial crezca |
 
 ---
 
@@ -717,12 +747,12 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 - [x] **Método de autenticación** (fase 3). Resuelto en D-25: sesión de Django con cookie `httpOnly` y CSRF.
 - [x] **Nombre de la restricción única de `hst_kmeans_centroids`** (D-26): el DBML se actualizó con el nombre corto.
 - [x] **Riesgo mientras no exista K-Means** (D-31): se eligió B, el K-Means real.
-- [ ] **Confirmar D-06** (sin Celery ni Redis).
+- [x] **D-06** (sin Celery ni Redis): reemplazada por D-55; se implementaron Celery y Redis para cumplir el objetivo específico 3.
 - [x] **Inventario del Bloque H:** descrito por el autor y cargado por `seed_demo` con un historial simulado (D-42).
 - [x] Revisar que el CSV filtrado de Kaggle permita calcular las 3 variables: sí, 142 equipos con 2 o más incidencias (sección 10).
 - [x] **Mínimo de equipos con historial** para dejar de usar el modelo de Kaggle: 30, configurable (D-33).
 - [x] **Anular incidencia** en la interfaz (D-39).
-- [ ] **Eliminar equipo** (equipo creado por error, `is_active = false`): falta decidir si se agrega.
+- [x] **Eliminar equipo**: "Anular equipo" solo sin incidencias (RN-26, D-56).
 - [x] **Pantalla de reportes** (D-40), sin cambios en la BD. Pendiente: confirmar con el tutor su contenido.
 
 ---

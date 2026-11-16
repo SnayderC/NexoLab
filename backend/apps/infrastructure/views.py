@@ -7,11 +7,13 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core import audit
 from apps.incidents.models import Incident
 from apps.risk.models import DeviceRiskResult, KmeansRun
 from apps.risk.selectors import centroid_profile, current_results, risk_item
 from apps.risk.serializers import RiskLevelSerializer
 from apps.risk.services import RiskCalculationError, calculate_risk
+from apps.risk.tasks import schedule_recalculation
 from apps.users.permissions import IsAdmin
 
 from .models import Device, DeviceStatus, DeviceType, Laboratory
@@ -58,7 +60,10 @@ class LaboratoryListView(APIView):
     def post(self, request):
         serializer = LaboratoryWriteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        laboratory = serializer.save()
+        with transaction.atomic():
+            laboratory = serializer.save()
+            audit.record(request.user, audit.Action.CREATE, audit.EntityType.LABORATORY, laboratory,
+                         changes=audit.created(laboratory, audit.LABORATORY_FIELDS))
         return laboratory_response(laboratory.pk, status.HTTP_201_CREATED)
 
 
@@ -78,7 +83,12 @@ class LaboratoryDetailView(APIView):
             if count:
                 return open_incidents_conflict(count)
 
-        serializer.save()
+        with transaction.atomic():
+            before = audit.snapshot(laboratory, audit.LABORATORY_FIELDS)
+            serializer.save()
+            if changes := audit.diff(before, audit.snapshot(laboratory, audit.LABORATORY_FIELDS)):
+                audit.record(request.user, audit.Action.UPDATE, audit.EntityType.LABORATORY, laboratory,
+                             changes=changes)
         return laboratory_response(pk)
 
 
@@ -95,8 +105,12 @@ class LaboratoryActivationView(APIView):
             if count:
                 return open_incidents_conflict(count)
 
-        laboratory.is_active = self.is_active
-        laboratory.save(update_fields=['is_active', 'updated_at'])
+        if laboratory.is_active != self.is_active:
+            with transaction.atomic():
+                laboratory.is_active = self.is_active
+                laboratory.save(update_fields=['is_active', 'updated_at'])
+                action = audit.Action.ACTIVATE if self.is_active else audit.Action.DEACTIVATE
+                audit.record(request.user, action, audit.EntityType.LABORATORY, laboratory)
         return laboratory_response(pk)
 
 
@@ -161,7 +175,10 @@ class DeviceTypeListView(APIView):
     def post(self, request):
         serializer = DeviceTypeCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        device_type = serializer.save()
+        with transaction.atomic():
+            device_type = serializer.save()
+            audit.record(request.user, audit.Action.CREATE, audit.EntityType.DEVICE_TYPE, device_type,
+                         changes=audit.created(device_type, ['code', 'name']))
         return Response(DeviceTypeSerializer(device_types_with_counts().get(pk=device_type.pk)).data,
                         status=status.HTTP_201_CREATED)
 
@@ -177,8 +194,15 @@ class DeviceTypeSelectionView(APIView):
         serializer.is_valid(raise_exception=True)
         selected = serializer.validated_data['selected_ids']
         with transaction.atomic():
+            previous = set(DeviceType.objects.filter(is_selected=True).values_list('id', flat=True))
             DeviceType.objects.filter(id__in=selected).update(is_selected=True, updated_at=timezone.now())
             DeviceType.objects.exclude(id__in=selected).update(is_selected=False, updated_at=timezone.now())
+            names = dict(DeviceType.objects.values_list('id', 'name'))
+            added = sorted(names[i] for i in set(selected) - previous)
+            removed = sorted(names[i] for i in previous - set(selected))
+            if added or removed:
+                audit.record(request.user, audit.Action.CATALOG_SELECTION, audit.EntityType.DEVICE_TYPE,
+                             label='Catálogo de equipos', changes={'added': added, 'removed': removed})
 
         # La selección queda guardada aunque el cálculo falle; la ejecución fallida queda registrada.
         risk_error = None
@@ -240,7 +264,13 @@ class DeviceListView(APIView):
     def post(self, request):
         serializer = DeviceCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        device = create_device(serializer.validated_data)
+        with transaction.atomic():
+            device = create_device(serializer.validated_data)
+            fields = ['laboratory', 'device_type'] + audit.DEVICE_FIELDS
+            audit.record(request.user, audit.Action.CREATE, audit.EntityType.DEVICE, device,
+                         changes=audit.created(device, fields))
+            # RF11 (D-55): un equipo nuevo dispara el recálculo en segundo plano. Mientras tanto queda en riesgo bajo.
+            schedule_recalculation(KmeansRun.TriggerType.DEVICE_CHANGE, triggered_by=request.user)
         return Response({'id': device.id, 'code': device.code}, status=status.HTTP_201_CREATED)
 
 
@@ -255,13 +285,44 @@ class DeviceDetailView(APIView):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
-        for field in ('physical_location', 'specifications'):
-            if field in data:
-                setattr(device, field, data[field])
-        device.save(update_fields=['physical_location', 'specifications', 'updated_at'])
-        if data.get('status') == DeviceStatus.RETIRED and device.device_status.code != DeviceStatus.RETIRED:
-            retire_device(device)
+        with transaction.atomic():
+            before = audit.snapshot(device, audit.DEVICE_FIELDS)
+            for field in ('physical_location', 'specifications'):
+                if field in data:
+                    setattr(device, field, data[field])
+            device.save(update_fields=['physical_location', 'specifications', 'updated_at'])
+            retiring = data.get('status') == DeviceStatus.RETIRED and device.device_status.code != DeviceStatus.RETIRED
+            if retiring:
+                retire_device(device)
+            if changes := audit.diff(before, audit.snapshot(device, audit.DEVICE_FIELDS)):
+                action = audit.Action.RETIRE if retiring else audit.Action.UPDATE
+                audit.record(request.user, action, audit.EntityType.DEVICE, device, changes=changes)
         return Response({'id': device.id, 'code': device.code})
+
+
+# RN-26
+DEVICE_HAS_INCIDENTS = 'El equipo tiene incidencias registradas y no se puede anular. Si ya no se usa, retíralo.'
+
+
+class DeviceVoidView(APIView):
+    """POST devices/{id}/void (administrador, RN-26, D-56): anula un equipo registrado por error.
+    Solo si no tiene incidencias válidas: con historial, el equipo se retira (RN-12) para no perderlo."""
+
+    permission_classes = [IsAdmin]
+
+    def post(self, request, pk):
+        device = get_object_or_404(Device, pk=pk, is_active=True)
+        if Incident.objects.filter(device=device, is_active=True).exists():
+            return Response({'detail': DEVICE_HAS_INCIDENTS, 'code': 'has_incidents'}, status=status.HTTP_409_CONFLICT)
+        with transaction.atomic():
+            device.is_active = False
+            device.save(update_fields=['is_active', 'updated_at'])
+            # Deja de aparecer en el dashboard: ya no tiene riesgo vigente.
+            DeviceRiskResult.objects.filter(device=device, is_current=True).update(
+                is_current=False, updated_at=timezone.now()
+            )
+            audit.record(request.user, audit.Action.VOID, audit.EntityType.DEVICE, device)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class DeviceHistoryView(APIView):

@@ -12,6 +12,7 @@ import { useToast } from '../../../components/ui/toast/useToast'
 import { DEVICE_CODE_PATTERN, DeviceCodeError, type DeviceListItem, type DeviceOptions } from '../api'
 import { useDeviceOptions } from '../useDeviceOptions'
 import { useCreateDevice, useUpdateDevice } from '../useDevices'
+import VoidDeviceButton from './VoidDeviceButton'
 
 const FORM_ID = 'device-form'
 const statusOptions = [
@@ -140,6 +141,7 @@ function DeviceForm({ device, onClose, options }: DeviceFormModalProps & { optio
         title={device ? `Editar equipo · ${device.code}` : 'Nuevo equipo'}
         footer={
           <>
+            {device && <VoidDeviceButton device={device} onVoided={onClose} />}
             <Button onClick={onClose}>Cancelar</Button>
             <Button
               type="submit"

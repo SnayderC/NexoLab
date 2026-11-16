@@ -18,7 +18,7 @@ backend/
 ```
 
 Los modelos replican `docs/NEXOLAB_BD_v4.dbml`: mismos nombres de tablas y columnas (`db_table`, `db_column`).
-Además de las 14 tablas del modelo, Django crea sus tablas internas (`django_session`,
+Además de las 15 tablas del modelo (v4.1), Django crea sus tablas internas (`django_session`,
 `django_migrations`, `django_content_type`, `auth_permission`, `auth_group`); no forman parte del modelo de datos.
 
 ## Variables de entorno (`backend/.env`)
@@ -32,6 +32,9 @@ Además de las 14 tablas del modelo, Django crea sus tablas internas (`django_se
 | `ALLOWED_HOSTS` | Opcional. Por defecto `localhost,127.0.0.1` |
 | `CSRF_TRUSTED_ORIGINS` | Opcional. Por defecto `http://localhost:5173` |
 | `RISK_MIN_OWN_HISTORY_DEVICES` | Opcional. Equipos con historial propio para dejar de usar el modelo de Kaggle. Por defecto 30 (D-33) |
+| `REDIS_URL` | Opcional. Cola de Celery (D-55). Docker Compose la define; sin ella, el riesgo se calcula en el momento |
+| `RISK_RECALC_MINUTES` | Opcional. Minutos entre recálculos programados por Celery Beat. Por defecto 15 |
+| `LOGIN_MAX_FAILED_ATTEMPTS`, `LOGIN_LOCKOUT_MINUTES` | Opcionales. Límite de intentos de login (RN-25). Por defecto 5 y 15 |
 
 ## Datos de demostración
 
@@ -57,6 +60,16 @@ dataset) y `services.py` (elige el modelo y guarda la ejecución, los centroides
 transacción). Cada ejecución queda en `hst_kmeans_runs` con sus métricas, el origen de los datos y el modelo usado.
 El detalle está en la sección 10 de `docs/CONTEXTO_DESARROLLO.md`.
 
+**En segundo plano (D-55):** `apps/risk/tasks.py` define la tarea de Celery `recalculate_risk_task` y
+`schedule_recalculation`, que la encola al confirmar el cierre o la anulación de una incidencia o el registro de un
+equipo. Celery Beat la ejecuta cada `RISK_RECALC_MINUTES` minutos. Configuración en `config/celery.py`.
+
+```bash
+.venv/bin/celery -A config worker -l info --concurrency 1   # procesa las tareas (necesita REDIS_URL)
+.venv/bin/celery -A config beat -l info                     # programa el recálculo cada 15 minutos
+.venv/bin/python manage.py analizar_k                       # codo y silueta para k = 2..8 (D-57)
+```
+
 ## Endpoints disponibles
 
 Base: `/api/v1/`. Autenticación por sesión de Django (cookie `sessionid`, `httpOnly`) con protección CSRF.
@@ -69,6 +82,7 @@ Base: `/api/v1/`. Autenticación por sesión de Django (cookie `sessionid`, `htt
 | `GET auth/me` | Con sesión | 200 con el usuario · 401 sin sesión (D-47) |
 | `POST auth/technician-mode` | Administrador | 200 con el usuario y `technician_mode` · 400 si `enabled` no es true o false (RN-24, D-45) |
 | `POST auth/change-password` | Con sesión | 204 · 400 con los mensajes de validación |
+| `GET audit-logs` | Administrador | 200 con la bitácora (páginas de 20; filtros `entity_type`, `user_id`, `from`, `to`) · 403 técnico (D-52) |
 | `GET users` | Administrador | 200 con cada usuario, su rol, laboratorios a cargo y carga de trabajo · 403 técnico |
 | `POST users` | Administrador | 201 · 400 (correo duplicado, `temporary_password` débil) |
 | `PATCH users/{id}` | Administrador | 200 · 400. No cambia la contraseña |
@@ -87,6 +101,7 @@ Base: `/api/v1/`. Autenticación por sesión de Django (cookie `sessionid`, `htt
 | `GET devices/eligible` | Con sesión | 200 con los equipos que admiten incidencias (RN-13), por `laboratory_id` o `code` |
 | `GET devices` | Con sesión | 200 `{items, total}` con riesgo vigente; filtros `search`, `laboratory_id`, `device_type_id`, `status`, `risk_level` y `page` (10 por página) |
 | `POST devices` | Administrador | 201 · 400 (formato RN-11, prefijo D-21, duplicado, laboratorio inactivo, tipo no seleccionado) |
+| `POST devices/{id}/void` | Administrador | 204 · 409 `{code: "has_incidents"}` si tiene incidencias (RN-26) |
 | `PATCH devices/{id}` | Administrador | 200 · 400. Ubicación, especificaciones y `status = RETIRED` (RN-12); un retirado no vuelve a activo |
 | `GET devices/{code}` | Con sesión | 200 con datos, retiro, riesgo vigente, perfil del grupo y evolución mensual · 404 |
 | `GET devices/{code}/incidents` | Con sesión | 200 `{items, total, now}`, 10 por página |
@@ -136,8 +151,9 @@ Toda petición que no sea `GET` debe enviar la cabecera `X-CSRFToken` con el val
 
 - `apps/users/tests.py` (28): login, límite de intentos (RN-25), CSRF, sesión, cierre de sesión, cambio de contraseña, permiso de administrador
   y administración de usuarios.
-- `apps/infrastructure/tests.py` (22): laboratorios (RN-10) y equipos (RN-07, RN-11, RN-12, D-21), con RN-06.
-- `apps/risk/tests.py` (21): variables, algoritmo, RN-23, carga inicial con Kaggle, reuso del modelo, recálculo y dashboard.
+- `apps/infrastructure/tests.py` (26): laboratorios (RN-10), equipos (RN-07, RN-11, RN-12, D-21), anular equipos (RN-26) y recálculo al registrar un equipo, con RN-06.
+- `apps/risk/tests.py` (27): variables, algoritmo, RN-23, carga inicial con Kaggle, reuso del modelo, recálculo, dashboard, tareas de Celery (D-55) y análisis de k (D-57).
 - `apps/incidents/tests.py` (26): registrar, listar, cerrar, retiro, numeración, recálculo al cerrar, anular, modo técnico (RN-24), catálogo de tipos y reportes.
+- `apps/core/tests.py` (4): bitácora de cambios administrativos (D-52): qué se registra, que nunca guarde contraseñas, filtros y permisos.
 
-Total: 97 pruebas. Sin sesión, cualquier ruta protegida responde 401 (D-47).
+Total: 111 pruebas. En las pruebas, Celery corre en el mismo proceso (no hace falta Redis). Sin sesión, cualquier ruta protegida responde 401 (D-47).

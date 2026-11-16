@@ -2,7 +2,14 @@ import type { BaseRecord } from './base'
 
 // Tablas hst_ del modelo K-Means. Las columnas numeric se reciben como número.
 
-export type KmeansTriggerType = 'INITIAL_LOAD' | 'INCIDENT_CLOSED' | 'CATALOG_CHANGE' | 'MANUAL'
+// SCHEDULED: Celery Beat cada 15 minutos. DEVICE_CHANGE: equipo nuevo (D-55).
+export type KmeansTriggerType =
+  | 'INITIAL_LOAD'
+  | 'INCIDENT_CLOSED'
+  | 'CATALOG_CHANGE'
+  | 'MANUAL'
+  | 'SCHEDULED'
+  | 'DEVICE_CHANGE'
 
 export type KmeansRunStatus = 'RUNNING' | 'COMPLETED' | 'FAILED'
 

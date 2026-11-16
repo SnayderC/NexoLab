@@ -69,7 +69,7 @@ function DashboardPage() {
             </>
           ) : (
             <>
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
                 <KpiCard
                   icon={TriangleAlert}
                   tone="danger"
@@ -128,7 +128,7 @@ function DashboardPage() {
                 now={summary.generated_at}
                 canClose={canOperateIncidents}
               />
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
                 {summary.risk_groups.map((group) => (
                   <RiskColumn key={group.risk_level.code} group={group} />
                 ))}

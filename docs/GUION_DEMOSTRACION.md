@@ -88,9 +88,10 @@ Kaggle es 0,52 y la de los datos propios ronda 0,39.
 | Equipos → **Nuevo equipo** con el código `H101PC31`, y luego `H101-PC-31` | "El código debe seguir el formato y empezar con el laboratorio y el tipo elegidos (RN-11, D-21). Un equipo nuevo entra en riesgo bajo." |
 | Catálogo → seleccionar un tipo y **Guardar** | "Solo los tipos seleccionados entran a los formularios y al modelo; al guardar se recalcula el riesgo (RN-07, RN-08)." |
 | Usuarios → desactivar a Andrea | "Nadie puede desactivar su propia cuenta (RN-05)." |
-| Incidencias → abrir una → **Anular incidencia** | "Si se registró por error, se anula: no se borra, pero deja de contar para el riesgo (RN-22)." |
+| Incidencias → abrir una → **Anular incidencia** | "Si se registró por error, se anula: no se borra, pero deja de contar para el riesgo (RN-22). Lo mismo con un equipo creado por error, si no tiene incidencias (RN-26)." |
 | Fíjense que Andrea no ve "Registrar incidencia" ni "Cerrar" | "El administrador no hace el trabajo del técnico mezclado con el suyo (RN-24). Si lo necesita, activa el modo técnico." |
 | Menú de usuario → **Activar modo técnico** | "Aparece la etiqueta 'Modo técnico', el menú queda como el de un técnico y desaparece la administración. El backend también lo controla: sin el modo, la API rechaza el registro. Lo que registre queda a su nombre." Luego **Volver al modo administrador** |
+| Administración → **Bitácora** | "Cada cambio queda registrado: quién, cuándo, sobre qué y qué cambió. Aquí se ve que Andrea activó y desactivó el modo técnico, y lo que acabamos de hacer." |
 
 ## 8. Reportes (1 minuto)
 
@@ -102,7 +103,7 @@ Abre **Reportes** y cambia el periodo a mayo–octubre.
 ## 9. Cierre (30 segundos)
 
 > "NexoLab reemplaza el registro informal por un sistema con reglas, guarda el historial completo y usa
-> inteligencia artificial para decir qué equipos atender primero. El sistema tiene 97 pruebas automáticas y cada
+> inteligencia artificial para decir qué equipos atender primero. El sistema tiene 130 pruebas automáticas y cada
 > decisión está documentada."
 
 ---
@@ -136,11 +137,22 @@ aunque su última falla sea antigua; al pasar el tiempo sin fallas, baja de nive
 Con pocos equipos los grupos no son confiables (unos 10 por grupo es un mínimo práctico). Es configurable, porque el
 sistema sirve para laboratorios de distintos tamaños (D-33).
 
+**¿El técnico espera a que termine el modelo?**
+No. Al cerrar una incidencia, el cálculo se encola en Redis y un *worker* de Celery lo hace en segundo plano. Además,
+Celery Beat recalcula el riesgo cada 15 minutos, así los "días desde la última falla" se mantienen al día. Se puede
+mostrar con `docker compose logs -f worker`.
+
+**¿Por qué tres grupos?**
+Se probó k = 2 a 8 con el método del codo y la silueta. El codo cae en 4, pero la calidad de k = 3 es casi igual y con
+4 aparece un grupo de solo 6 equipos. Tres grupos dan grupos estables y tres niveles de acción claros.
+
 **¿Qué pasa si se registra algo por error?**
 El administrador lo anula. No se borra: queda como evidencia, pero no cuenta (RN-22).
 
 **¿Cómo saben que funciona?**
-Hay 97 pruebas automáticas del backend, y cada ejecución del modelo guarda sus métricas y los datos que usó.
+Hay 130 pruebas automáticas (111 del backend y 19 del frontend), y cada
+ejecución del modelo guarda sus métricas y los datos que usó. El rendimiento se midió: con 10 usuarios a la vez, todas
+las consultas respondieron en menos de 1 segundo.
 
 ---
 

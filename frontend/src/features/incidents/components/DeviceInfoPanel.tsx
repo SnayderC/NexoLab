@@ -12,7 +12,7 @@ function DeviceInfoPanel({ deviceCode }: { deviceCode: string | null }) {
   const { data: device, isPending } = useDeviceInfo(deviceCode)
 
   return (
-    <aside className="flex w-95 shrink-0 flex-col gap-5 self-start rounded-lg border border-border-subtle bg-surface p-5">
+    <aside className="flex w-full shrink-0 lg:w-95 flex-col gap-5 self-start rounded-lg border border-border-subtle bg-surface p-5">
       <h2 className="text-base font-semibold">Información del equipo</h2>
 
       {deviceCode === null ? (

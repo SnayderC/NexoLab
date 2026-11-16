@@ -8,6 +8,7 @@ Interfaz de NexoLab con React 19, TypeScript, Vite 8 y Tailwind 4. Replica el Fi
 ```bash
 npm run dev      # servidor de desarrollo en http://localhost:5173
 npm run lint     # ESLint
+npm test         # pruebas con Vitest (D-53); npm run test:watch las repite al guardar
 npm run build    # verificación de tipos y build de producción en dist/
 ```
 

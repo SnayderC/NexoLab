@@ -1,6 +1,7 @@
 """Pruebas de la API de laboratorios y equipos (Figma 04 y 05, RN-06, RN-07, RN-10 a RN-12). Ejecutar: python manage.py test"""
 
 from datetime import timedelta
+from unittest.mock import patch
 
 from django.test import override_settings
 from django.urls import reverse
@@ -8,6 +9,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from apps.core.models import AuditLog
 from apps.incidents.models import Component, Incident, IncidentStatus, ResolutionAction
 from apps.risk.models import DeviceRiskResult, KmeansRun, RiskLevel
 from apps.risk.services import calculate_risk
@@ -216,6 +218,14 @@ class DeviceTests(LaboratoryTestCase):
         result = DeviceRiskResult.objects.get(device=device, is_current=True)
         self.assertEqual((result.risk_level.code, result.classification_method), ('LOW', 'INSUFFICIENT_HISTORY'))
 
+    def test_d55_registrar_un_equipo_programa_el_recalculo(self):
+        payload = {'code': 'H101-PC-04', 'laboratory_id': self.h101.id,
+                   'device_type_id': DeviceType.objects.get(code='PC').id}
+        with patch('apps.risk.tasks.recalculate_risk_task.delay') as delay:
+            with self.captureOnCommitCallbacks(execute=True):
+                self.client.post(reverse('device-list'), payload, format='json')
+        delay.assert_called_once_with(trigger_type='DEVICE_CHANGE', triggered_by_id=self.admin.id, incident_id=None)
+
     def test_rn11_y_d21_codigo_valido_y_del_laboratorio_y_tipo(self):
         pc = DeviceType.objects.get(code='PC')
         cases = {
@@ -280,4 +290,43 @@ class DeviceTests(LaboratoryTestCase):
         self.client.force_authenticate(self.technician)
         self.assertEqual(self.client.get(reverse('device-list')).status_code, status.HTTP_200_OK)
         self.assertEqual(self.client.post(reverse('device-list'), {}, format='json').status_code,
+                         status.HTTP_403_FORBIDDEN)
+
+
+class DeviceVoidTests(LaboratoryTestCase):
+    """RN-26 (D-56): anular un equipo registrado por error."""
+
+    def setUp(self):
+        self.client.force_login(self.admin)
+
+    def test_rn26_anula_un_equipo_sin_incidencias(self):
+        device = Device.objects.get(code='H101-PC-02')
+        response = self.client.post(reverse('device-void', args=[device.id]))
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        device.refresh_from_db()
+        self.assertFalse(device.is_active)
+        # Ya no aparece en la lista ni en su historial, y queda en la bitácora.
+        codes = [d['code'] for d in self.client.get(reverse('device-list')).data['items']]
+        self.assertNotIn('H101-PC-02', codes)
+        self.assertEqual(self.client.get(reverse('device-history', args=['H101-PC-02'])).status_code,
+                         status.HTTP_404_NOT_FOUND)
+        self.assertTrue(AuditLog.objects.filter(action='VOID', entity_type='DEVICE', entity_id=device.id).exists())
+        # Su código queda reservado.
+        payload = {'code': 'H101-PC-02', 'laboratory_id': self.h101.id,
+                   'device_type_id': DeviceType.objects.get(code='PC').id}
+        response = self.client.post(reverse('device-list'), payload, format='json')
+        self.assertIn('anulado', str(response.data['code']))
+
+    def test_rn26_con_incidencias_no_se_anula(self):
+        device = Device.objects.get(code='H101-PC-01')  # tiene una incidencia abierta
+        response = self.client.post(reverse('device-void', args=[device.id]))
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertEqual(response.data['code'], 'has_incidents')
+        device.refresh_from_db()
+        self.assertTrue(device.is_active)
+
+    def test_rn26_solo_el_administrador_anula(self):
+        self.client.force_login(self.technician)
+        device = Device.objects.get(code='H101-PC-02')
+        self.assertEqual(self.client.post(reverse('device-void', args=[device.id])).status_code,
                          status.HTTP_403_FORBIDDEN)

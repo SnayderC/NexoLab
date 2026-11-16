@@ -1,17 +1,15 @@
 """Registrar, cerrar y anular incidencias (RN-13 a RN-22)."""
 
-import logging
-
 from django.db import connection, transaction
 from django.utils import timezone
 
+from apps.core import audit
 from apps.infrastructure.services import retire_device
 from apps.risk.models import KmeansRun
-from apps.risk.services import RiskCalculationError, calculate_risk
+from apps.risk.tasks import schedule_recalculation
 
 from .models import Incident, IncidentStatus
 
-logger = logging.getLogger(__name__)
 
 # Identificador del candado de PostgreSQL que serializa la numeración (RN-14).
 NUMBERING_LOCK_ID = 2026_14
@@ -68,17 +66,10 @@ def close_incident(incident: Incident, data, closed_by) -> Incident:
         if action.is_retirement_action:
             retire_device(incident.device, retired_at=incident.closed_at)
 
-        # D-06: el riesgo se recalcula después de confirmar el cierre (disparador INCIDENT_CLOSED).
-        transaction.on_commit(lambda: recalculate_after_close(incident, closed_by))
+        # D-55: el riesgo se recalcula en segundo plano (Celery) después de confirmar el cierre. Un fallo del
+        # modelo no deshace el cierre: la ejecución queda FAILED y el riesgo anterior sigue vigente.
+        schedule_recalculation(KmeansRun.TriggerType.INCIDENT_CLOSED, triggered_by=closed_by, incident=incident)
     return incident
-
-
-def recalculate_after_close(incident, user):
-    # Un fallo del modelo no deshace el cierre: la ejecución queda FAILED y el riesgo anterior sigue vigente.
-    try:
-        calculate_risk(KmeansRun.TriggerType.INCIDENT_CLOSED, triggered_by=user, incident=incident)
-    except RiskCalculationError:
-        logger.warning('No se pudo recalcular el riesgo después de cerrar %s', incident.incident_number)
 
 
 def void_incident(incident: Incident, voided_by) -> None:
@@ -87,11 +78,6 @@ def void_incident(incident: Incident, voided_by) -> None:
     with transaction.atomic():
         incident.is_active = False
         incident.save(update_fields=['is_active', 'updated_at'])
-        transaction.on_commit(lambda: recalculate_after_void(incident, voided_by))
-
-
-def recalculate_after_void(incident, user):
-    try:
-        calculate_risk(KmeansRun.TriggerType.MANUAL, triggered_by=user)
-    except RiskCalculationError:
-        logger.warning('No se pudo recalcular el riesgo después de anular %s', incident.incident_number)
+        audit.record(voided_by, audit.Action.VOID, audit.EntityType.INCIDENT, incident,
+                     label=f'{incident.incident_number} ({incident.device.code})')
+        schedule_recalculation(KmeansRun.TriggerType.MANUAL, triggered_by=voided_by)

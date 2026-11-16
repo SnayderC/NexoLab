@@ -15,7 +15,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.conf import settings
-from django.db import transaction
+from django.db import connection, transaction
 from django.db.models import Q
 from django.utils import timezone
 
@@ -26,6 +26,10 @@ from . import kaggle, kmeans
 from .models import DeviceRiskResult, KmeansCentroid, KmeansRun, RiskLevel
 
 Trigger = KmeansRun.TriggerType
+
+# Candado de PostgreSQL: dos cálculos nunca se cruzan (por ejemplo, el programado de Celery y el botón
+# "Recalcular ahora" al mismo tiempo). El segundo espera a que termine el primero (D-55).
+RISK_LOCK_ID = 7_300_001
 
 
 class RiskCalculationError(Exception):
@@ -109,14 +113,15 @@ def calculate_risk(trigger_type, triggered_by=None, incident=None, as_of=None) -
     )
 
     try:
-        devices = list(eligible_devices(as_of).values_list('id', flat=True))
-        features = device_features(devices, now)
-        # Paso 2 (RN-23): solo los equipos con al menos 2 incidencias entran al algoritmo.
-        with_history = [device_id for device_id in devices if features[device_id].has_history]
-        own_rows = [features[device_id].as_row() for device_id in with_history]
-        model, clustering, metrics, source = _build_model(trigger_type, own_rows)
-
         with transaction.atomic():
+            with connection.cursor() as cursor:
+                cursor.execute('SELECT pg_advisory_xact_lock(%s)', [RISK_LOCK_ID])
+            devices = list(eligible_devices(as_of).values_list('id', flat=True))
+            features = device_features(devices, now)
+            # Paso 2 (RN-23): solo los equipos con al menos 2 incidencias entran al algoritmo.
+            with_history = [device_id for device_id in devices if features[device_id].has_history]
+            own_rows = [features[device_id].as_row() for device_id in with_history]
+            model, clustering, metrics, source = _build_model(trigger_type, own_rows)
             _save(run, model, clustering, metrics, source, devices, features, with_history, now, started)
     except Exception as error:
         known = isinstance(error, (RiskCalculationError, ValueError, FileNotFoundError))

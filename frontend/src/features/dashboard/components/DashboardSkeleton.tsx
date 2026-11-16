@@ -6,7 +6,7 @@ import { CARD_LIMIT } from '../../devices/components/riskStyles'
 
 export function KpiRowSkeleton() {
   return (
-    <div className="grid grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
       {Array.from({ length: 4 }, (_, index) => (
         <div key={index} className="flex h-28 items-center gap-3 rounded-lg border border-border-subtle bg-surface p-5">
           <Skeleton className="size-11 rounded-lg" />
@@ -53,7 +53,7 @@ function DeviceCardSkeleton() {
 
 export function RiskColumnsSkeleton() {
   return (
-    <div className="grid grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
       {Object.values(CARD_LIMIT).map((cardCount, column) => (
         <div key={column} className="flex flex-col gap-3 p-3">
           <div className="flex flex-col gap-2">
