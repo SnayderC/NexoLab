@@ -11,7 +11,7 @@ from rest_framework.views import APIView
 from apps.infrastructure.models import Laboratory
 
 from .models import User
-from .permissions import IsAdmin
+from .permissions import TECHNICIAN_MODE_KEY, IsAdmin, is_technician_mode
 from .serializers import (
     ChangePasswordSerializer,
     LoginSerializer,
@@ -27,6 +27,11 @@ INVALID_CREDENTIALS = 'Correo o contraseña incorrectos'
 ACCOUNT_DISABLED = 'Tu cuenta está desactivada. Contacta al administrador.'
 # RN-05
 SELF_DEACTIVATION = 'No puedes desactivar tu propia cuenta'
+
+
+def session_user_response(request):
+    """Usuario de la sesión más el modo técnico, que vive en la sesión y no en la tabla (D-45)."""
+    return Response({**SessionUserSerializer(request.user).data, 'technician_mode': is_technician_mode(request)})
 
 
 @method_decorator(ensure_csrf_cookie, name='get')
@@ -77,7 +82,9 @@ class LoginView(APIView):
             )
 
         login(request, user)  # también actualiza last_login_at
-        return Response(SessionUserSerializer(user).data)
+        # Toda sesión empieza en modo administrador (RN-24).
+        request.session[TECHNICIAN_MODE_KEY] = False
+        return session_user_response(request)
 
 
 class LogoutView(APIView):
@@ -92,7 +99,21 @@ class MeView(APIView):
     """GET auth/me: usuario de la sesión. 403 si no hay sesión."""
 
     def get(self, request):
-        return Response(SessionUserSerializer(request.user).data)
+        return session_user_response(request)
+
+
+class TechnicianModeView(APIView):
+    """POST auth/technician-mode: el administrador activa o desactiva el modo técnico (RN-24, D-45).
+    Cuerpo: {"enabled": true | false}."""
+
+    permission_classes = [IsAdmin]
+
+    def post(self, request):
+        enabled = request.data.get('enabled')
+        if not isinstance(enabled, bool):
+            return Response({'enabled': ['Indica true o false']}, status=status.HTTP_400_BAD_REQUEST)
+        request.session[TECHNICIAN_MODE_KEY] = enabled
+        return session_user_response(request)
 
 
 class ChangePasswordView(APIView):

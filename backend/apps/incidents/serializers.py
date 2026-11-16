@@ -79,7 +79,8 @@ class IncidentCloseSerializer(serializers.Serializer):
     closed_at = serializers.DateTimeField()
 
     def validate_diagnosis(self, value):
-        return _check_length(value, 10, 500, 'El diagnóstico')
+        # La columna sigue siendo `diagnosis`; en pantalla se llama "Solución aplicada" (D-44).
+        return _check_length(value, 10, 500, 'La solución aplicada')
 
     def validate_notes(self, value):
         return (value or '').strip() or None

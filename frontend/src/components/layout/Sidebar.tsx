@@ -12,10 +12,11 @@ import {
 import { useCurrentUser } from '../../features/auth/useCurrentUser'
 import SidebarLink from './SidebarLink'
 
+// technicianWork: solo para el técnico o el administrador en modo técnico (RN-24).
 const mainLinks = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/incidencias', label: 'Incidencias', icon: ClipboardList },
-  { to: '/incidencias/nueva', label: 'Registrar incidencia', icon: CirclePlus },
+  { to: '/incidencias/nueva', label: 'Registrar incidencia', icon: CirclePlus, technicianWork: true },
   { to: '/reportes', label: 'Reportes', icon: ChartColumn },
 ]
 
@@ -27,7 +28,8 @@ const adminLinks = [
 ]
 
 function Sidebar() {
-  const { isAdmin } = useCurrentUser()
+  const { canAdminister, canOperateIncidents } = useCurrentUser()
+  const visibleLinks = mainLinks.filter((link) => !link.technicianWork || canOperateIncidents)
 
   return (
     <aside className="sticky top-0 flex h-screen w-64 shrink-0 flex-col gap-5 overflow-y-auto border-r border-border-subtle bg-surface p-3">
@@ -40,14 +42,14 @@ function Sidebar() {
 
       <nav className="flex flex-col gap-5" aria-label="Menú principal">
         <ul className="flex flex-col gap-1">
-          {mainLinks.map((link) => (
-            <li key={link.to}>
-              <SidebarLink {...link} />
+          {visibleLinks.map(({ to, label, icon }) => (
+            <li key={to}>
+              <SidebarLink to={to} label={label} icon={icon} />
             </li>
           ))}
         </ul>
 
-        {isAdmin && (
+        {canAdminister && (
           <div className="flex flex-col gap-2">
             <p className="px-3 text-2xs font-semibold uppercase text-text-muted">Administración</p>
             <ul className="flex flex-col gap-1">

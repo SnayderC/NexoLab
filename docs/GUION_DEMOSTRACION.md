@@ -54,11 +54,11 @@ puede cambiar de nivel. Es el comportamiento esperado: el modelo se actualiza co
    descripción "El monitor se apagó y no vuelve a encender."
    > "El número lo asigna el sistema y quién la registró sale de la sesión (RN-14, RN-15). El panel de la derecha
    > muestra el riesgo y las últimas fallas del equipo."
-2. En la lista aparece resaltada. Pulsa **Cerrar**: acción **Resuelto**, diagnóstico "Monitor quemado; se reemplazó
-   por uno de repuesto."
-   > "El tiempo de atención se calcula solo. Al cerrar, el modelo recalcula el riesgo de todos los equipos.
-   > Fíjense que no uso 'Requiere reemplazo': esa acción retira la computadora completa; aquí solo se cambió el
-   > monitor."
+2. En la lista aparece resaltada. Pulsa **Cerrar**: solución aplicada "Monitor quemado; se reemplazó por uno de
+   repuesto.", resultado de la atención **Resuelto**.
+   > "Al crear se describe el problema; al cerrar se registra la solución aplicada y el resultado. El tiempo de
+   > atención se calcula solo, y al cerrar el modelo recalcula el riesgo de todos los equipos. Fíjense que no uso
+   > 'Requiere reemplazo': ese resultado retira la computadora completa; aquí solo se cambió el monitor."
 
 ## 5. Historial de un equipo (2 minutos)
 
@@ -89,6 +89,8 @@ Kaggle es 0,52 y la de los datos propios ronda 0,39.
 | Catálogo → seleccionar un tipo y **Guardar** | "Solo los tipos seleccionados entran a los formularios y al modelo; al guardar se recalcula el riesgo (RN-07, RN-08)." |
 | Usuarios → desactivar a Andrea | "Nadie puede desactivar su propia cuenta (RN-05)." |
 | Incidencias → abrir una → **Anular incidencia** | "Si se registró por error, se anula: no se borra, pero deja de contar para el riesgo (RN-22)." |
+| Fíjense que Andrea no ve "Registrar incidencia" ni "Cerrar" | "El administrador no hace el trabajo del técnico mezclado con el suyo (RN-24). Si lo necesita, activa el modo técnico." |
+| Menú de usuario → **Activar modo técnico** | "Aparece la etiqueta 'Modo técnico', el menú queda como el de un técnico y desaparece la administración. El backend también lo controla: sin el modo, la API rechaza el registro. Lo que registre queda a su nombre." Luego **Volver al modo administrador** |
 
 ## 8. Reportes (1 minuto)
 
@@ -100,7 +102,7 @@ Abre **Reportes** y cambia el periodo a mayo–octubre.
 ## 9. Cierre (30 segundos)
 
 > "NexoLab reemplaza el registro informal por un sistema con reglas, guarda el historial completo y usa
-> inteligencia artificial para decir qué equipos atender primero. El sistema tiene 90 pruebas automáticas y cada
+> inteligencia artificial para decir qué equipos atender primero. El sistema tiene 94 pruebas automáticas y cada
 > decisión está documentada."
 
 ---
@@ -130,7 +132,7 @@ sistema sirve para laboratorios de distintos tamaños (D-33).
 El administrador lo anula. No se borra: queda como evidencia, pero no cuenta (RN-22).
 
 **¿Cómo saben que funciona?**
-Hay 90 pruebas automáticas del backend, y cada ejecución del modelo guarda sus métricas y los datos que usó.
+Hay 94 pruebas automáticas del backend, y cada ejecución del modelo guarda sus métricas y los datos que usó.
 
 ---
 

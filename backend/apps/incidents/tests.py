@@ -103,6 +103,58 @@ class RegisterTests(IncidentTestCase):
         self.assertEqual(response.data, [])
 
 
+class TechnicianModeTests(IncidentTestCase):
+    """RN-24 (D-45): el administrador registra y cierra incidencias solo en modo técnico."""
+
+    def set_mode(self, enabled):
+        return self.client.post(reverse('auth-technician-mode'), {'enabled': enabled}, format='json')
+
+    def setUp(self):
+        # Sesión real: el modo técnico se guarda en la sesión del servidor.
+        self.client.force_login(self.admin)
+
+    def test_rn24_sin_modo_tecnico_el_administrador_no_registra_ni_cierra(self):
+        self.assertFalse(self.client.get(reverse('auth-me')).data['technician_mode'])
+        response = self.register()
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertIn('modo técnico', str(response.data['detail']))
+
+        self.client.force_login(self.technician)
+        number = self.register().data['incident_number']
+        self.client.force_login(self.admin)
+        self.assertEqual(self.close(number).status_code, status.HTTP_403_FORBIDDEN)
+        # Consultar y anular siguen disponibles en modo administrador.
+        self.assertEqual(self.client.get(reverse('incident-list')).status_code, status.HTTP_200_OK)
+        self.assertEqual(self.client.post(reverse('incident-void', args=[number])).status_code,
+                         status.HTTP_204_NO_CONTENT)
+
+    def test_rn24_con_modo_tecnico_registra_y_cierra_a_su_nombre(self):
+        self.assertTrue(self.set_mode(True).data['technician_mode'])
+        self.assertTrue(self.client.get(reverse('auth-me')).data['technician_mode'])
+        created = self.register()
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(created.data['reported_by_name'], 'Andrea V')  # RN-15
+        self.assertEqual(self.close(created.data['incident_number']).status_code, status.HTTP_200_OK)
+
+        self.assertFalse(self.set_mode(False).data['technician_mode'])
+        self.assertEqual(self.register().status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_rn24_el_modo_se_apaga_al_iniciar_sesion_de_nuevo(self):
+        self.set_mode(True)
+        self.client.logout()
+        response = self.client.post(reverse('auth-login'), {'email': 'andrea@test.ec', 'password': 'x'},
+                                    format='json')
+        self.assertFalse(response.data['technician_mode'])
+        self.assertEqual(self.register().status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_rn24_solo_el_administrador_cambia_de_modo(self):
+        self.assertEqual(self.set_mode('si').status_code, status.HTTP_400_BAD_REQUEST)
+        self.client.force_login(self.technician)
+        self.assertEqual(self.set_mode(True).status_code, status.HTTP_403_FORBIDDEN)
+        self.assertFalse(self.client.get(reverse('auth-me')).data['technician_mode'])
+        self.assertEqual(self.register().status_code, status.HTTP_201_CREATED)
+
+
 class ListTests(IncidentTestCase):
     def test_lista_con_filtros_contadores_y_anuladas_fuera(self):
         open_number = self.register().data['incident_number']

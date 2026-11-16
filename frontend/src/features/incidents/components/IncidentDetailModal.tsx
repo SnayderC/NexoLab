@@ -45,9 +45,9 @@ function IncidentDetailModal({ incidentNumber, onClose }: IncidentDetailModalPro
           <IncidentSummary incident={incident} />
           {incident.status === 'CLOSED' && (
             <>
-              <DetailField label="Diagnóstico">{incident.diagnosis}</DetailField>
+              <DetailField label="Solución aplicada">{incident.diagnosis}</DetailField>
               <div className="flex gap-6">
-                <DetailField label="Acción tomada">{incident.resolution_action_name}</DetailField>
+                <DetailField label="Resultado de la atención">{incident.resolution_action_name}</DetailField>
                 <DetailField label="Fecha y hora de cierre">
                   {incident.closed_at && formatDateTime(incident.closed_at)}
                 </DetailField>

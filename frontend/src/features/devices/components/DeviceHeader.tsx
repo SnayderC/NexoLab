@@ -5,7 +5,8 @@ import type { DeviceHistory } from '../api'
 
 type DeviceHeaderProps = {
   device: DeviceHistory
-  onRegisterIncident: () => void
+  // Sin esta función (administrador en su modo normal, RN-24) no se muestra el botón.
+  onRegisterIncident?: () => void
 }
 
 // Encabezado del historial (Figma 4.0 "Activo" y 4.2 "Retirado").
@@ -27,23 +28,25 @@ function DeviceHeader({ device, onRegisterIncident }: DeviceHeaderProps) {
         {device.specifications && <p className="leading-5">{device.specifications}</p>}
       </div>
 
-      <div className="flex w-90 shrink-0 flex-col items-end gap-2">
-        {/* RN-13: no se registran incidencias en equipos retirados. */}
-        <Button
-          variant="primary"
-          icon={isRetired ? undefined : Plus}
-          disabled={isRetired}
-          onClick={onRegisterIncident}
-          className="w-full"
-        >
-          {isRetired ? '+ Registrar incidencia para este equipo' : 'Registrar incidencia para este equipo'}
-        </Button>
-        {isRetired && (
-          <p className="text-right text-xs leading-4.5 text-text-muted">
-            No se pueden registrar incidencias en equipos retirados
-          </p>
-        )}
-      </div>
+      {onRegisterIncident && (
+        <div className="flex w-90 shrink-0 flex-col items-end gap-2">
+          {/* RN-13: no se registran incidencias en equipos retirados. */}
+          <Button
+            variant="primary"
+            icon={isRetired ? undefined : Plus}
+            disabled={isRetired}
+            onClick={onRegisterIncident}
+            className="w-full"
+          >
+            {isRetired ? '+ Registrar incidencia para este equipo' : 'Registrar incidencia para este equipo'}
+          </Button>
+          {isRetired && (
+            <p className="text-right text-xs leading-4.5 text-text-muted">
+              No se pueden registrar incidencias en equipos retirados
+            </p>
+          )}
+        </div>
+      )}
     </section>
   )
 }

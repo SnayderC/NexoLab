@@ -39,7 +39,7 @@ El caso de origen es el Bloque H de la UNEMI, pero el sistema sirve para **cualq
 | Pieza | Nombre técnico | Qué hace | Analogía |
 |---|---|---|---|
 | **Frontend** | React + TypeScript | Lo que la persona ve y usa: pantallas, botones, formularios. **No toma decisiones**: muestra datos y revisa los formularios para avisar errores rápido | El mesero: toma el pedido y lo lleva |
-| **Backend** | Django + Django REST Framework | Aplica **todas las reglas** (RN-01 a RN-23), decide quién puede hacer qué, calcula el riesgo con K-Means y guarda los datos | La cocina: decide qué se puede preparar y lo prepara |
+| **Backend** | Django + Django REST Framework | Aplica **todas las reglas** (RN-01 a RN-24), decide quién puede hacer qué, calcula el riesgo con K-Means y guarda los datos | La cocina: decide qué se puede preparar y lo prepara |
 | **Base de datos** | PostgreSQL | Guarda todo de forma permanente: usuarios, equipos, incidencias, resultados del modelo | La despensa |
 
 **¿Cómo se comunican?** El frontend le pide cosas al backend por una **API**: un conjunto de direcciones como
@@ -53,13 +53,13 @@ saltarse una regla manipulando la pantalla.
 ### Ejemplo completo: qué pasa cuando Carlos cierra una incidencia
 
 1. Carlos llena el formulario "Cerrar incidencia" y pulsa el botón (**frontend**).
-2. La pantalla revisa que el diagnóstico tenga al menos 10 caracteres y que la fecha no sea futura. Si algo falta,
+2. La pantalla revisa que la solución aplicada tenga al menos 10 caracteres y que la fecha no sea futura. Si algo falta,
    avisa sin molestar al servidor.
 3. La pantalla envía los datos a `POST /api/v1/incidents/INC-2026-0302/close` (**API**).
 4. El **backend** comprueba que Carlos tenga sesión, vuelve a validar todo (RN-17) y que la incidencia no esté ya
    cerrada (RN-21).
 5. Calcula el tiempo de atención (RN-18) y guarda el cierre con Carlos como quien cerró (RN-15).
-6. Si la acción fue "Requiere reemplazo", retira el equipo **en la misma operación** (RN-19).
+6. Si el resultado de la atención fue "Requiere reemplazo", retira el equipo **en la misma operación** (RN-19).
 7. Al confirmar el guardado, ejecuta el **K-Means** para actualizar el riesgo de todos los equipos.
 8. Responde a la pantalla, que muestra "Incidencia cerrada y riesgo de los equipos actualizado" y refresca el
    Dashboard.
@@ -220,7 +220,7 @@ modificó). Además, Django crea unas tablas propias para funcionar (sesiones y 
 
 | Qué | Comando | Resultado esperado |
 |---|---|---|
-| Pruebas del backend | `python manage.py test apps` | 90 pruebas, todas OK |
+| Pruebas del backend | `python manage.py test apps` | 94 pruebas, todas OK |
 | Revisión del código del frontend | `npm run lint` | Sin errores |
 | Versión final del frontend | `npm run build` | Termina sin errores |
 
@@ -233,7 +233,7 @@ modificó). Además, Django crea unas tablas propias para funcionar (sesiones y 
 | Arrancar el sistema | [README.md](../README.md) |
 | Presentar el sistema | [GUION_DEMOSTRACION.md](GUION_DEMOSTRACION.md) |
 | Saber por qué se decidió algo | Sección 17 de [CONTEXTO_DESARROLLO.md](CONTEXTO_DESARROLLO.md) (D-01 a D-43) |
-| Las reglas de negocio | Sección 9 de `CONTEXTO_DESARROLLO.md` (RN-01 a RN-23) |
+| Las reglas de negocio | Sección 9 de `CONTEXTO_DESARROLLO.md` (RN-01 a RN-24) |
 | El modelo K-Means en detalle | Sección 10 de `CONTEXTO_DESARROLLO.md` |
 | Las tablas | [NEXOLAB_BD_v4.dbml](NEXOLAB_BD_v4.dbml) |
 | Los endpoints | [backend/README.md](../backend/README.md) |

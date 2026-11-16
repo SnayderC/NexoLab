@@ -7,7 +7,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.users.permissions import IsAdmin
+from apps.users.permissions import CanOperateIncidents, IsAdmin
 
 from .models import Incident, IncidentStatus
 from .serializers import IncidentCloseSerializer, IncidentCreateSerializer, eligible_devices
@@ -62,7 +62,11 @@ def _get(number):
 
 
 class IncidentListView(APIView):
-    """GET incidents (con sesión, filtros y páginas de 10) · POST incidents (con sesión, RN-13 a RN-16)."""
+    """GET incidents (con sesión, filtros y páginas de 10) · POST incidents (técnico o administrador en
+    modo técnico, RN-13 a RN-16 y RN-24)."""
+
+    def get_permissions(self):
+        return [CanOperateIncidents()] if self.request.method == 'POST' else [IsAuthenticated()]
 
     def get(self, request):
         params = request.query_params
@@ -116,7 +120,10 @@ class IncidentDetailView(APIView):
 
 
 class IncidentCloseView(APIView):
-    """POST incidents/{número}/close (con sesión): RN-17 a RN-21 y recálculo INCIDENT_CLOSED."""
+    """POST incidents/{número}/close (técnico o administrador en modo técnico, RN-24): RN-17 a RN-21 y
+    recálculo INCIDENT_CLOSED."""
+
+    permission_classes = [CanOperateIncidents]
 
     def post(self, request, number):
         incident = _get(number)

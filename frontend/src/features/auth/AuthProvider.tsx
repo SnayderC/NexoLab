@@ -31,7 +31,14 @@ function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [queryClient])
 
-  const value = useMemo(() => ({ user, isLoading, login, logout }), [user, isLoading, login, logout])
+  const setTechnicianMode = useCallback(async (enabled: boolean) => {
+    setUser(await authApi.setTechnicianMode(enabled))
+  }, [])
+
+  const value = useMemo(
+    () => ({ user, isLoading, login, logout, setTechnicianMode }),
+    [user, isLoading, login, logout, setTechnicianMode],
+  )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

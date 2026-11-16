@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate } from 'react-router'
 import AppLayout from '../components/layout/AppLayout'
 import RequireAdmin from '../components/layout/RequireAdmin'
 import RequireAuth from '../components/layout/RequireAuth'
+import RequireTechnicianWork from '../components/layout/RequireTechnicianWork'
 import LoginPage from '../features/auth/pages/LoginPage'
 import DeviceTypeCatalogPage from '../features/catalog/pages/DeviceTypeCatalogPage'
 import DashboardPage from '../features/dashboard/pages/DashboardPage'
@@ -29,8 +30,9 @@ export const router = createBrowserRouter([
       { path: 'incidencias', element: <IncidentListPage />, handle: { title: 'Incidencias' } },
       {
         path: 'incidencias/nueva',
-        element: <IncidentCreatePage />,
-        handle: { title: 'Registrar incidencia' },
+        element: <RequireTechnicianWork />,
+        handle: { title: 'Registrar incidencia', technicianWork: true },
+        children: [{ index: true, element: <IncidentCreatePage /> }],
       },
       {
         path: 'equipos/:code',

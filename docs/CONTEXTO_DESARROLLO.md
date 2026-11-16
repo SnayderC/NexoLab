@@ -3,7 +3,7 @@
 > **Qué es este documento:** la referencia única del proyecto para desarrollar en VS Code. Sirve para el equipo y también como contexto para asistentes de IA (GitHub Copilot, Claude, etc.).
 > **Dónde va:** en el repositorio, en `docs/CONTEXTO_DESARROLLO.md`.
 > **Regla de oro:** si algo del código contradice este documento, se corrige uno de los dos y se registra en la sección 17 (Decisiones).
-> **Última actualización:** 29/10/2026 · Backend creado (modelos v4, datos de demostración y autenticación) y login del frontend conectado a la API real.
+> **Última actualización:** 12/11/2026 · Cambios pedidos en la revisión: modo técnico del administrador (RN-24, D-45) y "Solución aplicada" al cerrar (D-44).
 
 ---
 
@@ -50,7 +50,7 @@
 ### Dentro del alcance (aprobado)
 
 - Registro y seguimiento de incidencias por laboratorio y equipo.
-- Cierre con diagnóstico y acción tomada: Resuelto, Requiere reemplazo o Derivado.
+- Cierre con la solución aplicada y el resultado de la atención: Resuelto, Requiere reemplazo o Derivado (D-44).
 - Retiro automático del equipo cuando la acción es "Requiere reemplazo".
 - Cálculo automático del tiempo de atención.
 - Agrupamiento de equipos por riesgo con K-Means y dashboard con los 3 niveles.
@@ -68,22 +68,27 @@ Ver la sección 19.
 
 ## 3. Roles y funcionalidades
 
-| Funcionalidad | Técnico | Administrador |
-|---|:---:|:---:|
-| Iniciar sesión y cambiar su contraseña | ✅ | ✅ |
-| Ver el dashboard de riesgo y filtrarlo por laboratorio o tipo | ✅ | ✅ |
-| Registrar incidencias | ✅ | ✅ |
-| Ver y filtrar la lista de incidencias | ✅ | ✅ |
-| Cerrar incidencias (diagnóstico y acción) | ✅ | ✅ |
-| Ver el historial y la evolución del riesgo de un equipo | ✅ | ✅ |
-| Recalcular el riesgo manualmente | ❌ | ✅ |
-| Gestionar laboratorios | ❌ | ✅ |
-| Gestionar equipos (crear, editar, retirar) | ❌ | ✅ |
-| Configurar el catálogo de tipos de equipo | ❌ | ✅ |
-| Gestionar usuarios (crear, activar o desactivar, restablecer contraseña) | ❌ | ✅ |
+El administrador trabaja en dos modos (RN-24, D-45): su **modo normal** (administración) y el **modo técnico**,
+que activa desde el menú de usuario cuando necesita registrar o cerrar incidencias.
+
+| Funcionalidad | Técnico | Administrador | Administrador en modo técnico |
+|---|:---:|:---:|:---:|
+| Iniciar sesión y cambiar su contraseña | ✅ | ✅ | ✅ |
+| Ver el dashboard de riesgo y filtrarlo por laboratorio o tipo | ✅ | ✅ | ✅ |
+| Ver y filtrar la lista de incidencias y su detalle | ✅ | ✅ | ✅ |
+| Ver el historial y la evolución del riesgo de un equipo | ✅ | ✅ | ✅ |
+| Ver reportes | ✅ | ✅ | ✅ |
+| Registrar incidencias | ✅ | ❌ | ✅ |
+| Cerrar incidencias (solución aplicada y resultado) | ✅ | ❌ | ✅ |
+| Anular incidencias (RN-22) | ❌ | ✅ | ❌ |
+| Recalcular el riesgo manualmente | ❌ | ✅ | ❌ |
+| Gestionar laboratorios, equipos, catálogo y usuarios | ❌ | ✅ | ❌ |
 
 - Un técnico puede atender **cualquier** laboratorio. No está atado a uno.
 - Los permisos se aplican **en el backend**. Ocultar un botón en el frontend no es seguridad.
+- En modo técnico, el backend sigue aceptando las funciones de administración (la cuenta es de administrador); la
+  interfaz las oculta para que cada modo muestre solo su trabajo. Lo que el backend sí exige es el modo técnico para
+  registrar y cerrar.
 
 ---
 
@@ -289,6 +294,7 @@ Cada regla se aplica en el **backend**. El frontend puede validarlas antes para 
 - **RN-04** Las contraseñas cumplen los 4 validadores por defecto de Django: mínimo 8 caracteres, no solo números, no parecida a los datos del usuario y no común.
 - **RN-05** Un usuario no puede desactivarse a sí mismo.
 - **RN-06** Un técnico que intenta acceder a una función de administración recibe un error 403 (backend) y la pantalla "Acceso restringido" (frontend).
+- **RN-24** Registrar y cerrar incidencias es trabajo del técnico. El administrador solo puede hacerlo con el **modo técnico** activo (`POST auth/technician-mode`); sin él, la API responde 403 "Activa el modo técnico para registrar o cerrar incidencias.". El modo se guarda en la sesión, empieza apagado en cada inicio de sesión y lo que se registra queda a nombre del administrador (RN-15). Ver D-45.
 
 ### Catálogo e infraestructura
 
@@ -305,7 +311,7 @@ Cada regla se aplica en el **backend**. El frontend puede validarlas antes para 
 - **RN-14** `incident_number` lo genera el backend con el formato `INC-AAAA-NNNN`, correlativo por año.
 - **RN-15** `reported_by` y `closed_by` son siempre el usuario autenticado. **Nunca** se aceptan desde el cliente.
 - **RN-16** `description` entre 10 y 500 caracteres. `opened_at` no puede ser futura.
-- **RN-17** Para cerrar: `diagnosis` obligatorio (10–500 caracteres), `resolution_action` obligatoria y `closed_at` posterior o igual a `opened_at` y no futura.
+- **RN-17** Para cerrar: `diagnosis` obligatorio (10–500 caracteres; en pantalla se llama "Solución aplicada", D-44), `resolution_action` obligatoria ("Resultado de la atención") y `closed_at` posterior o igual a `opened_at` y no futura.
 - **RN-18** Al cerrar, `resolution_time_minutes = closed_at − opened_at` (en minutos, calculado por el backend).
 - **RN-19** Si la acción tiene `is_retirement_action = true`, el equipo pasa a RETIRED con `retired_at = closed_at`. **En la misma transacción** que el cierre.
 - **RN-20** "Derivado" (enviado a taller externo) **cierra** la incidencia. Si el equipo vuelve a fallar, se registra una nueva.
@@ -477,7 +483,7 @@ Referencia visual: archivo de Figma "Nexolab — Prototipo 1.0" (53 frames). Dat
 | Mi perfil | `/perfil` | Ambos | 06 · Perfil | `mst_users` |
 | Acceso restringido | (cualquier ruta `/admin` para técnicos) | Técnico | 05 · Administración | — |
 
-**Elementos del prototipo que NO se programan:** los interruptores "Ver como técnico" y "Simular error de carga" (eran solo para probar el prototipo).
+**Elementos del prototipo que NO se programan:** el interruptor "Simular error de carga" (era solo para probar el prototipo). "Ver como técnico" tampoco se programa tal cual: lo reemplaza el **modo técnico** real del administrador (D-45), que sí cambia los permisos.
 
 ---
 
@@ -487,12 +493,13 @@ Base: `/api/v1/`. JSON en `snake_case`. Todos los endpoints requieren autenticac
 
 | Método y ruta | Uso |
 |---|---|
-| `GET auth/csrf` · `POST auth/login` · `POST auth/logout` · `GET auth/me` | Sesión ✅ |
+| `GET auth/csrf` · `POST auth/login` · `POST auth/logout` · `GET auth/me` | Sesión ✅ (`auth/me` y `auth/login` incluyen `technician_mode`) |
+| `POST auth/technician-mode` 🔒 | Activar o desactivar el modo técnico: `{"enabled": true}` (RN-24) ✅ |
 | `POST auth/change-password` | Mi perfil ✅ |
 | `GET catalogs` | Componentes, estados, acciones, niveles de riesgo y tipos seleccionados |
 | `GET dashboard/summary` | Indicadores, grupos de riesgo y última ejecución ✅ |
-| `GET incidents` · `POST incidents` | Lista con filtros y paginación · registrar |
-| `GET incidents/{id}` · `POST incidents/{id}/close` | Detalle · cerrar |
+| `GET incidents` · `POST incidents` | Lista con filtros y paginación · registrar (técnico o modo técnico, RN-24) |
+| `GET incidents/{id}` · `POST incidents/{id}/close` | Detalle · cerrar (técnico o modo técnico, RN-24) |
 | `POST incidents/{id}/void` 🔒 | Anular (registro por error) |
 | `GET devices` · `GET devices/{code}` | Lista y detalle con riesgo vigente y evolución mensual (D-36) ✅ |
 | `GET devices/{code}/incidents` | Historial ✅ |
@@ -604,6 +611,11 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 - [x] Docker Compose con todos los servicios: `docker compose --profile app up -d` (D-41).
 - [x] Comando de datos de demostración completo (`seed_demo` termina con la carga inicial de K-Means).
 - [x] Documentación final: `docs/GUIA_DEL_PROYECTO.md` (explicación y glosario en español) y `docs/GUION_DEMOSTRACION.md` (05/11/2026).
+- [x] Documento para la tesis: `docs/DOCUMENTO_PARA_TESIS.md` (10/11/2026).
+
+### Fase 9 — Cambios pedidos en la revisión (12/11/2026)
+- [x] "Solución aplicada" y "Resultado de la atención" al cerrar, en lugar de "Diagnóstico" y "Acción tomada" (D-44).
+- [x] Modo técnico del administrador, controlado también en el backend (RN-24, D-45), con 4 pruebas nuevas (94 en total).
 
 ---
 
@@ -675,6 +687,8 @@ Orden acordado: **primero la interfaz con datos de demostración, después el ba
 | D-41 | Docker Compose con perfiles: `docker compose up -d` levanta solo PostgreSQL (como antes) y `docker compose --profile app up -d` agrega el backend (`backend/Dockerfile`, Python 3.14, aplica migraciones al arrancar) y el frontend (`frontend/Dockerfile`, Node 22, Vite). El código se monta en los contenedores para recargar los cambios. `DATABASE_URL` lo define Compose (host `db`, puerto 5432) y el proxy de Vite usa `API_PROXY_TARGET` (`http://backend:8000`). `seed_demo` no corre al arrancar | Un solo comando para levantar el sistema completo (fase 8) sin romper la forma de trabajar anterior. Cargar los datos de demostración en cada arranque borraría los datos que el usuario registra |
 | D-42 | Nuevos datos de demostración (`apps/core/management/commands/_demo_history.py`): el Bloque H descrito por el autor (tabla de la sección 14) y un historial simulado de mayo a octubre de 2026, generado con una semilla fija (siempre el mismo resultado). Se agregan los tipos "Aire acondicionado" (`AC`) y "PC docente" (`DOC`); "Monitor" queda sin seleccionar porque el monitor es parte de la PC (D-02): si falla, se registra en la PC con el componente "Monitor" y se cierra como "Resuelto" (no "Requiere reemplazo", que retira la PC completa). `calculate_risk` acepta `as_of` para calcular como en una fecha pasada; `seed_demo` lo usa para la carga inicial y un cálculo al cierre de cada mes, así el gráfico "Evolución del riesgo" tiene historia. Los aires y televisores usan el componente "Otro" | Pedido del autor: tener un historial creado con sus datos. Con más de 30 equipos con historial se demuestra el entrenamiento con datos propios (D-33). La semilla fija hace que la demostración sea repetible |
 | D-43 | RN-11 acepta cualquier código de laboratorio (`H106A`, `LAB-2`) y números de 2 o 3 cifras: `^[A-Z0-9][A-Z0-9-]{0,9}-[A-Z]{2,5}-\d{2,3}$`. D-21 sigue exigiendo que el código empiece con el laboratorio y el tipo elegidos | El Bloque H tiene H106A y H106B, y el sistema apunta a laboratorios de cómputo en general, algunos con más de 99 equipos |
+| D-44 | Al cerrar una incidencia, "Diagnóstico" pasa a llamarse **"Solución aplicada"** ("Describe qué se hizo para resolver la incidencia") y "Acción tomada" pasa a **"Resultado de la atención"**. En el historial del equipo, las columnas son "Solución aplicada" y "Resultado". Solo cambian los textos visibles: las columnas `diagnosis` y `resolution_action_id` y el DBML no cambian | Pedido de la docente en la revisión (12/11/2026): el diagnóstico es una etapa anterior a la resolución. Los nombres siguen a ITIL (resolución y código de cierre) y a herramientas como ServiceNow (*Resolution notes* y *Resolution code*). Renombrar la columna obligaría a cambiar el DBML aprobado sin cambiar lo que se guarda |
+| D-45 | **Modo técnico del administrador** (RN-24). El modo se guarda en la sesión de Django (`technician_mode`), se cambia con `POST auth/technician-mode` (solo administrador) y empieza apagado en cada inicio de sesión. El permiso `CanOperateIncidents` exige el modo para registrar y cerrar. En la interfaz: opción "Activar modo técnico / Volver al modo administrador" en el menú de usuario, etiqueta "Modo técnico" en la barra superior, y cada modo muestra solo su menú (el técnico no ve Administración, Anular ni Recalcular; el normal no ve Registrar ni Cerrar, y las abiertas se abren con "Ver"). Si se entra por URL a una sección del otro modo, "Acceso restringido" ofrece cambiar de modo. Reemplaza la regla de no programar "Ver como técnico" | Pedido de la docente en la revisión (12/11/2026): el administrador no debe tener las funciones del técnico mezcladas con las suyas. Guardarlo en la sesión (y no en una columna) evita cambiar el DBML; controlarlo en el backend cumple la sección 3 ("ocultar un botón no es seguridad") |
 
 ---
 

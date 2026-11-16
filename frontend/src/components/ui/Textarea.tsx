@@ -3,7 +3,7 @@ import { controlClasses } from './controlStyles'
 
 type TextareaProps = TextareaHTMLAttributes<HTMLTextAreaElement> & {
   invalid?: boolean
-  // Alto mínimo: sm = 64 px (observaciones), md = 96 px (diagnóstico), lg = 112 px (descripción).
+  // Alto mínimo: sm = 64 px (observaciones), md = 96 px (solución aplicada), lg = 112 px (descripción).
   size?: 'sm' | 'md' | 'lg'
 }
 

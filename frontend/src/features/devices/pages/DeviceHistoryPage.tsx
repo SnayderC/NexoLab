@@ -8,6 +8,7 @@ import Notice from '../../../components/ui/Notice'
 import Pagination from '../../../components/ui/Pagination'
 import TableSkeleton from '../../../components/ui/TableSkeleton'
 import { formatDate } from '../../../lib/formatDate'
+import { useCurrentUser } from '../../auth/useCurrentUser'
 import { DeviceNotFoundError, HISTORY_PAGE_SIZE } from '../api'
 import CurrentRiskCard from '../components/CurrentRiskCard'
 import DeviceHeader from '../components/DeviceHeader'
@@ -24,8 +25,10 @@ function DeviceHistoryPage() {
   const history = useDeviceHistory(code)
   const incidents = useDeviceIncidents(code, page)
 
-  // El formulario de registro abre con este equipo ya elegido.
-  const registerIncident = () => navigate(`/incidencias/nueva?equipo=${code}`)
+  const { canOperateIncidents } = useCurrentUser()
+
+  // El formulario de registro abre con este equipo ya elegido. RN-24: no aparece en modo administrador.
+  const registerIncident = canOperateIncidents ? () => navigate(`/incidencias/nueva?equipo=${code}`) : undefined
 
   const breadcrumb = (
     <nav aria-label="Ruta de navegación" className="text-text-muted">
@@ -111,7 +114,8 @@ function DeviceHistoryPage() {
               icon={ClipboardList}
               title="Este equipo no tiene incidencias registradas"
               action={
-                !isRetired && (
+                !isRetired &&
+                registerIncident && (
                   <Button variant="primary" onClick={registerIncident}>
                     Registrar la primera incidencia
                   </Button>

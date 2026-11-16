@@ -18,7 +18,8 @@ import { useDashboardSummary, useRecalculateRisk } from '../useDashboard'
 
 function DashboardPage() {
   const navigate = useNavigate()
-  const { isAdmin } = useCurrentUser()
+  // RN-24: el administrador recalcula en su modo normal y registra o cierra solo en modo técnico.
+  const { canAdminister, canOperateIncidents } = useCurrentUser()
   const { showToast } = useToast()
   const [filters, setFilters] = useState<Filters>({ laboratory_id: null, device_type_id: null })
   const { data: summary, isPending, isError, refetch } = useDashboardSummary(filters)
@@ -45,9 +46,11 @@ function DashboardPage() {
     <div className="flex flex-col gap-5">
       <div className="flex h-10 items-center justify-between">
         <h1 className="text-2xl font-semibold">Dashboard de riesgo</h1>
-        <Button variant="primary" icon={Plus} onClick={() => navigate('/incidencias/nueva')}>
-          Registrar incidencia
-        </Button>
+        {canOperateIncidents && (
+          <Button variant="primary" icon={Plus} onClick={() => navigate('/incidencias/nueva')}>
+            Registrar incidencia
+          </Button>
+        )}
       </div>
 
       {isError && !summary ? (
@@ -102,7 +105,7 @@ function DashboardPage() {
               </div>
               <RiskAnalysisBanner
                 lastRun={summary.last_run}
-                canRecalculate={isAdmin}
+                canRecalculate={canAdminister}
                 isRecalculating={recalculate.isPending}
                 onRecalculate={handleRecalculate}
               />
@@ -120,7 +123,11 @@ function DashboardPage() {
             </>
           ) : (
             <>
-              <OpenIncidentsTable incidents={summary.open_incidents} now={summary.generated_at} />
+              <OpenIncidentsTable
+                incidents={summary.open_incidents}
+                now={summary.generated_at}
+                canClose={canOperateIncidents}
+              />
               <div className="grid grid-cols-3 gap-4">
                 {summary.risk_groups.map((group) => (
                   <RiskColumn key={group.risk_level.code} group={group} />

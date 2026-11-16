@@ -1,13 +1,16 @@
-import { ChevronDown, LogOut, User as UserIcon } from 'lucide-react'
+import { ChevronDown, LogOut, ShieldCheck, User as UserIcon, Wrench } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router'
+import { Link, useLocation, useNavigate } from 'react-router'
 import { useAuth } from '../../features/auth/useAuth'
 import { useCurrentUser } from '../../features/auth/useCurrentUser'
+import { useToast } from '../ui/toast/useToast'
 
 function UserMenu() {
-  const { user } = useCurrentUser()
-  const { logout } = useAuth()
+  const { user, isAdmin, isTechnicianMode } = useCurrentUser()
+  const { logout, setTechnicianMode } = useAuth()
+  const { showToast } = useToast()
   const navigate = useNavigate()
+  const { pathname } = useLocation()
   const [isOpen, setIsOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -36,6 +39,22 @@ function UserMenu() {
     navigate('/login', { replace: true })
   }
 
+  // RN-24 (D-45): el administrador cambia entre su modo y el modo técnico.
+  async function toggleTechnicianMode() {
+    setIsOpen(false)
+    const enabled = !isTechnicianMode
+    try {
+      await setTechnicianMode(enabled)
+      showToast({ message: enabled ? 'Modo técnico activado' : 'Volviste al modo administrador' })
+      // Si la pantalla actual no existe en el nuevo modo, se vuelve al Dashboard.
+      const leavesAdmin = enabled && pathname.startsWith('/admin')
+      const leavesTechnicianWork = !enabled && pathname === '/incidencias/nueva'
+      if (leavesAdmin || leavesTechnicianWork) navigate('/')
+    } catch {
+      showToast({ message: 'No se pudo cambiar de modo', tone: 'error' })
+    }
+  }
+
   const initials = `${user.first_name[0]}${user.last_name[0]}`
 
   return (
@@ -62,7 +81,7 @@ function UserMenu() {
       {isOpen && (
         <div
           role="menu"
-          className="absolute right-0 z-10 mt-2 w-48 rounded-lg border border-border-subtle bg-surface p-1 shadow-menu"
+          className="absolute right-0 z-10 mt-2 w-64 rounded-lg border border-border-subtle bg-surface p-1 shadow-menu"
         >
           <Link
             to="/perfil"
@@ -73,6 +92,21 @@ function UserMenu() {
             <UserIcon className="size-4 text-text-muted" aria-hidden />
             Mi perfil
           </Link>
+          {isAdmin && (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={toggleTechnicianMode}
+              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-background"
+            >
+              {isTechnicianMode ? (
+                <ShieldCheck className="size-4 text-text-muted" aria-hidden />
+              ) : (
+                <Wrench className="size-4 text-text-muted" aria-hidden />
+              )}
+              {isTechnicianMode ? 'Volver al modo administrador' : 'Activar modo técnico'}
+            </button>
+          )}
           <button
             type="button"
             role="menuitem"

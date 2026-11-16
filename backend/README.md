@@ -67,6 +67,7 @@ Base: `/api/v1/`. Autenticación por sesión de Django (cookie `sessionid`, `htt
 | `POST auth/login` | Público | 200 con el usuario · 400 credenciales incorrectas · 403 cuenta desactivada |
 | `POST auth/logout` | Con sesión | 204 |
 | `GET auth/me` | Con sesión | 200 con el usuario · 403 sin sesión |
+| `POST auth/technician-mode` | Administrador | 200 con el usuario y `technician_mode` · 400 si `enabled` no es true o false (RN-24, D-45) |
 | `POST auth/change-password` | Con sesión | 204 · 400 con los mensajes de validación |
 | `GET users` | Administrador | 200 con cada usuario, su rol, laboratorios a cargo y carga de trabajo · 403 técnico |
 | `POST users` | Administrador | 201 · 400 (correo duplicado, `temporary_password` débil) |
@@ -120,10 +121,12 @@ Toda petición que no sea `GET` debe enviar la cabecera `X-CSRFToken` con el val
   Las incidencias anuladas (`is_active = false`) no cuentan.
 - **Incidencias (RN-13 a RN-22):** solo en equipos que admiten incidencias; número `INC-AAAA-NNNN` correlativo por
   año (con un candado de PostgreSQL para no repetirlo); quien registra y cierra es siempre el usuario de la sesión;
-  descripción y diagnóstico de 10 a 500 caracteres (20 con el componente "Otro"); fechas no futuras y cierre no
+  descripción y solución aplicada (columna `diagnosis`, D-44) de 10 a 500 caracteres (20 con el componente "Otro"); fechas no futuras y cierre no
   anterior a la falla; tiempo de atención calculado por el backend; "Requiere reemplazo" retira el equipo en la misma
   transacción; una cerrada no se modifica. Al confirmar el cierre se recalcula el riesgo; si el modelo falla, el
   cierre se mantiene y la ejecución queda como FAILED.
+- **RN-24:** registrar y cerrar exigen ser técnico o administrador con el modo técnico activo (403 si no). El modo
+  se guarda en la sesión y empieza apagado en cada inicio de sesión.
 
 ## Pruebas
 
@@ -133,6 +136,8 @@ Toda petición que no sea `GET` debe enviar la cabecera `X-CSRFToken` con el val
 
 - `apps/users/tests.py` (25): login, CSRF, sesión, cierre de sesión, cambio de contraseña, permiso de administrador
   y administración de usuarios.
-- `apps/infrastructure/tests.py` (21): laboratorios (RN-10) y equipos (RN-07, RN-11, RN-12, D-21), con RN-06.
-- `apps/risk/tests.py` (20): variables, algoritmo, RN-23, carga inicial con Kaggle, reuso del modelo, recálculo y dashboard.
-- `apps/incidents/tests.py` (22): registrar, listar, cerrar, retiro, numeración, recálculo al cerrar, anular, catálogo de tipos y reportes.
+- `apps/infrastructure/tests.py` (22): laboratorios (RN-10) y equipos (RN-07, RN-11, RN-12, D-21), con RN-06.
+- `apps/risk/tests.py` (21): variables, algoritmo, RN-23, carga inicial con Kaggle, reuso del modelo, recálculo y dashboard.
+- `apps/incidents/tests.py` (26): registrar, listar, cerrar, retiro, numeración, recálculo al cerrar, anular, modo técnico (RN-24), catálogo de tipos y reportes.
+
+Total: 94 pruebas.

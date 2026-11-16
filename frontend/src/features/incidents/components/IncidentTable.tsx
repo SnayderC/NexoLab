@@ -14,7 +14,8 @@ type IncidentTableProps = {
   now: string
   // Incidencia recién registrada, que se resalta (Figma 3.7).
   highlightedNumber: string | null
-  onCloseIncident: (incidentNumber: string) => void
+  // Sin esta función (administrador en su modo normal, RN-24) las abiertas solo se pueden ver.
+  onCloseIncident?: (incidentNumber: string) => void
   onViewIncident: (incidentNumber: string) => void
   emptyState: ReactNode
   footer: ReactNode
@@ -96,7 +97,7 @@ function IncidentTable({
       header: 'Acción',
       className: 'w-19',
       render: (incident) =>
-        incident.status === 'OPEN' ? (
+        incident.status === 'OPEN' && onCloseIncident ? (
           <Button size="sm" onClick={() => onCloseIncident(incident.incident_number)}>
             Cerrar
           </Button>

@@ -14,12 +14,13 @@ type VoidIncidentButtonProps = {
 // "Anular incidencia" (RN-22, D-39): solo el administrador, con confirmación. No está en el Figma;
 // usa el botón y el diálogo de peligro de "Retirar equipo" (Figma 5.8).
 function VoidIncidentButton({ incidentNumber, onVoided }: VoidIncidentButtonProps) {
-  const { isAdmin } = useCurrentUser()
+  // RN-24: anular es función de administración; no aparece en modo técnico.
+  const { canAdminister } = useCurrentUser()
   const { showToast } = useToast()
   const voidIncident = useVoidIncident()
   const [isConfirming, setIsConfirming] = useState(false)
 
-  if (!isAdmin) return null
+  if (!canAdminister) return null
 
   function confirm() {
     setIsConfirming(false)

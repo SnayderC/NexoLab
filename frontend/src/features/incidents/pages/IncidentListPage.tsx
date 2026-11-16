@@ -7,6 +7,7 @@ import ErrorState from '../../../components/ui/ErrorState'
 import Pagination from '../../../components/ui/Pagination'
 import TableSkeleton from '../../../components/ui/TableSkeleton'
 import Tabs from '../../../components/ui/Tabs'
+import { useCurrentUser } from '../../auth/useCurrentUser'
 import { PAGE_SIZE, type IncidentListFilters, type IncidentStatusFilter } from '../api'
 import CloseIncidentModal from '../components/CloseIncidentModal'
 import IncidentDetailModal from '../components/IncidentDetailModal'
@@ -31,6 +32,8 @@ const VIEW_PARAM = 'ver'
 function IncidentListPage() {
   const navigate = useNavigate()
   const location = useLocation()
+  // RN-24: registrar y cerrar solo el técnico o el administrador en modo técnico.
+  const { canOperateIncidents } = useCurrentUser()
   const [searchParams, setSearchParams] = useSearchParams()
   const [filters, setFilters] = useState(initialFilters)
   const { data, isPending, isError, refetch } = useIncidentList(filters)
@@ -68,9 +71,11 @@ function IncidentListPage() {
     <div className="flex flex-col gap-5">
       <div className="flex h-10 items-center justify-between">
         <h1 className="text-2xl font-semibold">Incidencias</h1>
-        <Button variant="primary" icon={Plus} onClick={() => navigate('/incidencias/nueva')}>
-          Registrar incidencia
-        </Button>
+        {canOperateIncidents && (
+          <Button variant="primary" icon={Plus} onClick={() => navigate('/incidencias/nueva')}>
+            Registrar incidencia
+          </Button>
+        )}
       </div>
 
       <Tabs
@@ -94,7 +99,7 @@ function IncidentListPage() {
           status={filters.status}
           now={data.now}
           highlightedNumber={highlightedNumber}
-          onCloseIncident={(number) => openModal(CLOSE_PARAM, number)}
+          onCloseIncident={canOperateIncidents ? (number) => openModal(CLOSE_PARAM, number) : undefined}
           onViewIncident={(number) => openModal(VIEW_PARAM, number)}
           emptyState={
             <EmptyState
@@ -122,7 +127,10 @@ function IncidentListPage() {
         />
       )}
 
-      <CloseIncidentModal incidentNumber={searchParams.get(CLOSE_PARAM)} onClose={closeModals} />
+      <CloseIncidentModal
+        incidentNumber={canOperateIncidents ? searchParams.get(CLOSE_PARAM) : null}
+        onClose={closeModals}
+      />
       <IncidentDetailModal incidentNumber={searchParams.get(VIEW_PARAM)} onClose={closeModals} />
     </div>
   )

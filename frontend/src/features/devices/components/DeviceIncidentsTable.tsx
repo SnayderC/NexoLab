@@ -32,8 +32,8 @@ function DeviceIncidentsTable({ incidents, now, emptyState, footer }: DeviceInci
     { key: 'component', header: 'Componente', className: 'w-26', render: (i) => i.component_name },
     { key: 'priority', header: 'Prioridad', className: 'w-21', render: (i) => <PriorityBadge priority={i.priority} /> },
     { key: 'status', header: 'Estado', className: 'w-24', render: (i) => <IncidentStatusBadge status={i.status} /> },
-    { key: 'diagnosis', header: 'Diagnóstico', render: (i) => i.diagnosis ?? '—' },
-    { key: 'action', header: 'Acción', className: 'w-31', render: (i) => i.resolution_action_name ?? '—' },
+    { key: 'diagnosis', header: 'Solución aplicada', render: (i) => i.diagnosis ?? '—' },
+    { key: 'action', header: 'Resultado', className: 'w-31', render: (i) => i.resolution_action_name ?? '—' },
     {
       key: 'time',
       header: 'Tiempo de atención',

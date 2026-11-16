@@ -16,17 +16,18 @@ export const CLOSE_INCIDENT_FORM_ID = 'close-incident-form'
 
 const MAX_TEXT_LENGTH = 500
 
-// RN-17: diagnóstico de 10 a 500 caracteres, acción obligatoria y cierre entre la falla y ahora.
+// RN-17: solución aplicada de 10 a 500 caracteres, resultado obligatorio y cierre entre la falla y ahora.
+// La solución se guarda en la columna `diagnosis` (D-44: solo cambió el nombre visible).
 function buildSchema(openedAt: string) {
   return z
     .object({
       diagnosis: z
         .string()
         .trim()
-        .min(1, 'El diagnóstico es obligatorio')
-        .min(10, 'El diagnóstico debe tener al menos 10 caracteres')
+        .min(1, 'La solución aplicada es obligatoria')
+        .min(10, 'La solución aplicada debe tener al menos 10 caracteres')
         .max(MAX_TEXT_LENGTH),
-      resolution_action_id: z.string().min(1, 'Selecciona la acción tomada'),
+      resolution_action_id: z.string().min(1, 'Selecciona el resultado de la atención'),
       notes: z.string().trim().max(MAX_TEXT_LENGTH),
       closed_at: z.string().min(1, 'Indica la fecha y hora de cierre'),
     })
@@ -97,7 +98,7 @@ function CloseIncidentForm({ incident, closedByName, onSubmit }: CloseIncidentFo
     <form id={CLOSE_INCIDENT_FORM_ID} onSubmit={handleSubmit(submit)} noValidate className="flex flex-col gap-5">
       <FormField
         id="close-diagnosis"
-        label="Diagnóstico"
+        label="Solución aplicada"
         error={errors.diagnosis?.message}
         counter={`${diagnosis.length}/${MAX_TEXT_LENGTH}`}
       >
@@ -105,14 +106,14 @@ function CloseIncidentForm({ incident, closedByName, onSubmit }: CloseIncidentFo
           id="close-diagnosis"
           size="md"
           maxLength={MAX_TEXT_LENGTH}
-          placeholder="Describe el diagnóstico y la solución aplicada..."
+          placeholder="Describe qué se hizo para resolver la incidencia..."
           invalid={Boolean(errors.diagnosis)}
           aria-describedby="close-diagnosis-help"
           {...register('diagnosis')}
         />
       </FormField>
 
-      <FormField id="close-action" label="Acción tomada" error={errors.resolution_action_id?.message}>
+      <FormField id="close-action" label="Resultado de la atención" error={errors.resolution_action_id?.message}>
         <Controller
           control={control}
           name="resolution_action_id"

@@ -7,6 +7,8 @@ export type AuthContextValue = {
   isLoading: boolean
   login: (email: string, password: string) => Promise<void>
   logout: () => Promise<void>
+  // Solo administrador (RN-24).
+  setTechnicianMode: (enabled: boolean) => Promise<void>
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null)

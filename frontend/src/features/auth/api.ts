@@ -6,7 +6,8 @@ import type { User } from '../../types/user'
 // GET auth/me y POST auth/change-password (sección 13).
 
 // Usuario de la sesión, con su rol ya unido (lo que devuelve GET auth/me).
-export type SessionUser = User & { role: Role }
+// technician_mode no es columna de la BD: vive en la sesión del servidor (RN-24, D-45).
+export type SessionUser = User & { role: Role; technician_mode: boolean }
 
 export type AuthErrorCode = 'INVALID_CREDENTIALS' | 'ACCOUNT_DISABLED'
 
@@ -54,6 +55,11 @@ export async function fetchCurrentUser(): Promise<SessionUser | null> {
     if (!(error instanceof ApiError) || (error.status !== 401 && error.status !== 403)) throw error
     return null
   }
+}
+
+// Solo administrador: activa o desactiva el modo técnico de esta sesión (RN-24).
+export async function setTechnicianMode(enabled: boolean): Promise<SessionUser> {
+  return apiRequest<SessionUser>('/auth/technician-mode', { method: 'POST', body: { enabled } })
 }
 
 export async function changePassword(input: { current_password: string; new_password: string }): Promise<void> {

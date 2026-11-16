@@ -11,9 +11,11 @@ type OpenIncidentsTableProps = {
   incidents: OpenIncidentItem[]
   // Referencia para "hace 1 h".
   now: string
+  // RN-24: el administrador en su modo normal solo ve el detalle.
+  canClose: boolean
 }
 
-function OpenIncidentsTable({ incidents, now }: OpenIncidentsTableProps) {
+function OpenIncidentsTable({ incidents, now, canClose }: OpenIncidentsTableProps) {
   const navigate = useNavigate()
 
   const columns: TableColumn<OpenIncidentItem>[] = [
@@ -31,14 +33,14 @@ function OpenIncidentsTable({ incidents, now }: OpenIncidentsTableProps) {
       key: 'action',
       header: '',
       className: 'w-20',
-      // El modal "Cerrar incidencia" vive sobre /incidencias (sección 12).
+      // Los modales "Cerrar incidencia" y "Detalle" viven sobre /incidencias (sección 12).
       render: (incident) => (
         <Button
           size="sm"
           className="w-17.5"
-          onClick={() => navigate(`/incidencias?cerrar=${incident.incident_number}`)}
+          onClick={() => navigate(`/incidencias?${canClose ? 'cerrar' : 'ver'}=${incident.incident_number}`)}
         >
-          Cerrar
+          {canClose ? 'Cerrar' : 'Ver'}
         </Button>
       ),
     },

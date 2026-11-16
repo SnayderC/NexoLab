@@ -8,11 +8,14 @@ Antes de cada tarea, consulta las secciones relevantes de `docs/CONTEXTO_DESARRO
 - Modelo de datos aprobado: `docs/NEXOLAB_BD_v4.dbml` (no se cambia sin consultarme).
 - Datos de demostración: parte 3 de `docs/PROMPT_FIGMA_MAKE_NEXOLAB.md`.
 - Diseño aprobado: archivo de Figma "Nexolab — Prototipo 1.0", páginas 01 a 06.
-  No uses la página 00 ni implementes "Ver como técnico" ni "Simular error de carga".
+  No uses la página 00 ni implementes "Simular error de carga". "Ver como técnico" se reemplazó por el
+  modo técnico real del administrador (D-45, pedido en la revisión del 12/11/2026).
 
 ## Estado actual
 - Fases 0 a 7 terminadas: todas las pantallas (Figma 01 a 06) usan la API real; `src/mocks/` ya no existe.
-- Backend: autenticación, administración, incidencias, reportes y modelo K-Means (con Kaggle), con 90 pruebas.
+- Backend: autenticación, administración, incidencias, reportes y modelo K-Means (con Kaggle), con 94 pruebas.
+- Fase 9 (revisión del 12/11/2026): modo técnico del administrador (RN-24, D-45) y "Solución aplicada" al cerrar (D-44).
+- Documento para quien redacta la tesis: `docs/DOCUMENTO_PARA_TESIS.md`.
 - Los datos de demostración (Bloque H de ejemplo: 10 laboratorios, 432 equipos, 325 incidencias) se cargan con `python manage.py seed_demo` (D-42).
 - Docker Compose completo: `docker compose --profile app up -d` (D-41).
 - Fase 8 terminada: guía en español (`docs/GUIA_DEL_PROYECTO.md`) y guion (`docs/GUION_DEMOSTRACION.md`).
